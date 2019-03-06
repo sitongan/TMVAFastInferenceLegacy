@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <tuple>
+#include <array>
 #include <cstdint> //int64_t: used for ONNX IR
 #include <cstddef> // std::size_t
 
@@ -35,15 +36,21 @@ namespace OpenGraph{
 
    class RDataNode{
    public:
-
-   private:
+      template<typename T>
+      T* GetData(){} //return std::vector.data()
+   protected:
       string name;
       vector<int64_t> fDim;
       ETensorType fType;
+      bool fIsSegment;
+      std::tuple<size_t, size_t> fSegmentIndex;
       bool fHasData;
-         //???todo
    };
 
+   template<typename T>
+   class RDataNodeData: public RDataNode{
+      std::vector<T> fData;
+   };
 
 
 
@@ -53,14 +60,14 @@ namespace OpenGraph{
       T& GetValue(){
             //return (RAttribute<T> *)(this)->fValue;
       }
+      // in the operator functions:
+      //      Gemm(const RAttribute& att1){
+      //         att1.GetValue<int>
+      //      }
    protected:
       string fName;
       size_t fSize;
       EAttributeType fType;
-
-//      Gemm(const RAttribute& att1){
-//         att1.GetValue<int>
-//      }
 
    };
 
@@ -68,7 +75,7 @@ namespace OpenGraph{
    class RAttributeData: public RAttribute{
          T fValue;
    };
-   //template specialisation
+   //template specialisation for list of attributes?
 
    class ROpNode{
    public:
@@ -86,7 +93,7 @@ namespace OpenGraph{
    class RGraph{
    public:
 
-   private:
+   //private:
       string fName;
       std::map<size_t, vector<size_t>> fEdgesForward;
       std::map<size_t, vector<size_t>> fEdgesBackward;
@@ -112,6 +119,8 @@ namespace OpenGraph{
 }
 
 
+
+
 int main(){
   GOOGLE_PROTOBUF_VERIFY_VERSION;
   onnx::ModelProto model;
@@ -120,13 +129,22 @@ int main(){
     std::cerr << "Failed to parse onnx file." << endl;
     return -1;
   }
-  cout << "IR version: " << model.ir_version() << endl;
+  //model I/O
+  cout << "fIRVersion: " << model.ir_version() << endl;
+  cout << "fModelVersion:" << model.model_version() << endl;
+  cout << "opsetid_size: " << model.opset_import_size() << endl;
   const onnx::OperatorSetIdProto& opset = model.opset_import(0);
   cout << "Opset version: " << opset.version() << endl;
 
   const onnx::GraphProto& graph = model.graph();
   cout << graph.name() << endl;
-
+  vector<onnx::NodeProto> node;
+  for (int i=0; i < graph.node_size(); i++){
+     node.push_back(graph.node(i));
+  }
+  for (int i=0; i < graph.node_size(); i++){
+     cout << node[i].op_type() << endl;
+  }
 
 
 
