@@ -25,12 +25,12 @@ namespace Experimental{
 namespace OpenGraph{
 
    enum class EAttributeType{
-      undefined, float, int, string, tensor, graph, floats, ints, strings, tensors, graphs
+      UNDEFINED, FLOAT, INT, STRING, TENSOR, GRAPH, FLOATS, INTS, STRINGS, TENSORS, GRAPHS
    };
 
    enum class ETensorType{
-      undefined, float, uint8, int8, uint16, int16, int32, int64, string, bool, float16, double,
-      uint32, uint64, complex64, complex128, bfloat16
+      UNDEFINED, FLOAT, UNINT8, INT8, UINT16, INT16, INT32, INT64, STRING, BOOL, FLOAT16, DOUBLE,
+      UINT32, UINT64, COMPLEX64, COMPLEX28, BFLOAT16
    };
 
    class RDataNode{
@@ -46,15 +46,16 @@ namespace OpenGraph{
 
 
 
-   class RAttributeBase{ // interface for attributes
+
+   class RAttribute{ // interface for attributes
    public:
       template<typename T>
-      T& GetValue(....){
-            return (RAttribute<T> *)(this)->data;
+      T& GetValue(){
+            //return (RAttribute<T> *)(this)->fValue;
       }
    protected:
-      string name;
-      size_t size;
+      string fName;
+      size_t fSize;
       EAttributeType fType;
 
 //      Gemm(const RAttribute& att1){
@@ -64,8 +65,8 @@ namespace OpenGraph{
    };
 
    template<typename T>
-   class RAttribute<T>: public RAttributeBase{
-         T data;
+   class RAttributeData: public RAttribute{
+         T fValue;
    };
    //template specialisation
 
@@ -77,6 +78,8 @@ namespace OpenGraph{
       vector<RDataNode*> fInputs;
       vector<RDataNode*> fOutputs;
       vector<RAttribute*> fAttributes;
+      string fOperator;
+      //todo: map from string to function pointers for the operator
    };
 
 
