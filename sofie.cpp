@@ -24,7 +24,7 @@ using std::endl;
 
 namespace TMVA{
 namespace Experimental{
-namespace OpenGraph{
+namespace SOFIE{   //Project code. System for Open, Fast Inference Engine
 
    enum class EAttributeType{
       UNDEFINED, FLOAT, INT, STRING, TENSOR, GRAPH, FLOATS, INTS, STRINGS, TENSORS, GRAPHS
@@ -102,7 +102,13 @@ namespace OpenGraph{
    class ROpNode{
    public:
 
-   private:
+
+      //temp
+      const onnx::NodeProto& fNodeProto; //for data access
+
+      ROpNode(const onnx::NodeProto& nodeproto): fNodeProto(nodeproto) {}
+
+   //private:
       vector<RDataNode*> fWeights;
       vector<RDataNode*> fInputs;
       vector<RDataNode*> fOutputs;
@@ -168,27 +174,33 @@ int main(){
    //model I/O
    cout << "fIRVersion: " << model.ir_version() << endl;
    cout << "fModelVersion:" << model.model_version() << endl;
-   cout << "opsetid_size: " << model.opset_import_size() << endl;
-   const onnx::OperatorSetIdProto& opset = model.opset_import(0);
-   cout << "Opset version: " << opset.version() << endl;
+   for (int i =0; i < model.opset_import_size(); i++){
+      cout << "Opset version: " << model.opset_import(0).version() << endl;
+   }
 
    cout << "size of int in sys:" << 8 * sizeof(int) << endl;
    cout << "size of int used by onnx:" << 8 * sizeof(model.ir_version()) << endl;
 
+   vector<TMVA::Experimental::SOFIE::RDataNode> fDataNodes;
+   vector<TMVA::Experimental::SOFIE::ROpNode> fOpNodes;
+
+
+
+
    const onnx::GraphProto& graph = model.graph();
-   cout << graph.name() << endl;
+   cout << "graph name: " << graph.name() << endl;
+
+
+
+
    /*
-   vector<const onnx::NodeProto> node;
-   for (int i=0; i < graph.node_size(); i++){
-     node.push_back(graph.node(i));
-   }
-   for (int i=0; i < graph.node_size(); i++){
-     cout << node[i].op_type() << endl;
-   }
    for (int i=0; i < graph.node_size(); i++){
      cout << node[i].op_type() << endl;
    }
    */
+
+
+
    std::map<string, std::int64_t> datanode_edge;
    //size_t will be the index of the other node (send/receive) of the datanode edge
    std::map<std::int64_t, vector<std::int64_t>> EdgesForward;
@@ -250,6 +262,8 @@ int main(){
    for (auto const& item : EdgesBackward){
       cout << item.first << ":" << print(item.second, graph) << endl;
    }
+
+
 
 
 
