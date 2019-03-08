@@ -9,7 +9,6 @@
 #include <set>
 #include <cstdint> //int64_t: used for ONNX IR
 #include <cstddef> // std::size_t
-#include "ROOT/RVec.hxx"
 
 
 #include "onnx.pb.h"
@@ -37,24 +36,45 @@ namespace OpenGraph{
    };
 
    class RDataNode{
-   public:
-      template<typename T>
-      T* GetData(){} //return std::vector.data()
-   protected:
+
+//    protected:
+      public:
       string name;
       vector<int64_t> fDim;
       ETensorType fType;
       bool fIsSegment;
-      std::tuple<size_t, size_t> fSegmentIndex;
+      std::tuple<int64_t, int64_t> fSegmentIndex;
       bool fHasData;
+
+      //temp
+      const onnx::TensorProto& fTensorProto; //for data access
+
+//    public:
+      template<typename T>
+      T* GetData(){} //return std::vector.data()
+      RDataNode(const onnx::TensorProto& tensorproto)
+      : fTensorProto(tensorproto), fType(static_cast<ETensorType>(tensorproto.data_type()))
+      {
+         if (tensorproto.has_name()){
+            name = tensorproto.name();
+         }else{
+            name = "";
+         }
+         for (int i = 0; i < tensorproto.dims_size(); i++){
+            fDim.push_back(tensorproto.dims(i));
+         }
+         fIsSegment = tensorproto.has_segment();
+         if (fIsSegment){
+            fSegmentIndex = std::make_tuple(tensorproto.segment().begin(),tensorproto.segment().end());
+         }
+      }
+
    };
 
    template<typename T>
    class RDataNodeData: public RDataNode{
       std::vector<T> fData;
    };
-
-
 
    class RAttribute{ // interface for attributes
    public:
@@ -152,6 +172,9 @@ int main(){
    const onnx::OperatorSetIdProto& opset = model.opset_import(0);
    cout << "Opset version: " << opset.version() << endl;
 
+   cout << "size of int in sys:" << 8 * sizeof(int) << endl;
+   cout << "size of int used by onnx:" << 8 * sizeof(model.ir_version()) << endl;
+
    const onnx::GraphProto& graph = model.graph();
    cout << graph.name() << endl;
    /*
@@ -171,10 +194,18 @@ int main(){
    std::map<std::int64_t, vector<std::int64_t>> EdgesForward;
    std::map<std::int64_t, vector<std::int64_t>> EdgesBackward;
 
+   std::set<string> initializer_names;
+
+   for (int i=0; i < graph.initializer_size(); i++){
+      initializer_names.insert(graph.initializer(i).name());
+   }
 
    for (int i=0; i < graph.input_size(); i++){
-      cout << graph.input(i).name() << endl;
-      datanode_edge[graph.input(i).name()] = -1;
+      if (initializer_names.find(graph.input(i).name()) == initializer_names.end()){
+         //input datanode is not a weight node (has no initializer)
+         datanode_edge[graph.input(i).name()] = -1;
+      }
+
    }
    for (int i=0; i < graph.output_size(); i++){
       cout << graph.input(i).name() << endl;
@@ -189,16 +220,19 @@ int main(){
    for (int i=0; i< graph.node_size(); i++){
       for (int j=0; j < graph.node(i).input_size(); j++){
          const string& datanode_name {graph.node(i).input(j)};
-         if(datanode_edge.find(datanode_name) != datanode_edge.end()){
-            EdgesForward[datanode_edge[datanode_name]].push_back(i);
-            EdgesBackward[i].push_back(datanode_edge[datanode_name]);
-         }else{
-            datanode_edge[datanode_name] = i;
+         if (initializer_names.find(datanode_name) == initializer_names.end()){
+         //if input to this node is not an initializer
+            if(datanode_edge.find(datanode_name) != datanode_edge.end()){
+               EdgesForward[datanode_edge[datanode_name]].push_back(i);
+               EdgesBackward[i].push_back(datanode_edge[datanode_name]);
+            }else{
+               datanode_edge[datanode_name] = i;
+            }
          }
       }
 
       for (int j=0; j < graph.node(i).output_size(); j++){
-         const string& datanode_name {graph.node(i).output(j)};
+         string datanode_name {graph.node(i).output(j)};
          if(datanode_edge.find(datanode_name) != datanode_edge.end()){
             EdgesBackward[datanode_edge[datanode_name]].push_back(i);
             EdgesForward[i].push_back(datanode_edge[datanode_name]);
@@ -216,7 +250,6 @@ int main(){
    for (auto const& item : EdgesBackward){
       cout << item.first << ":" << print(item.second, graph) << endl;
    }
-
 
 
 
