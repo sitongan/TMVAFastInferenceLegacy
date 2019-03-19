@@ -7,6 +7,8 @@
 #include <tuple>
 #include <array>
 #include <set>
+#include <queue>
+#include <deque>
 #include <cstdint> //int64_t: used for ONNX IR
 #include <cstddef> // std::size_t
 
@@ -24,7 +26,9 @@ using std::endl;
 
 namespace TMVA{
 namespace Experimental{
-namespace SOFIE{   //Project code. System for Open, Fast Inference Engine
+namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluation
+
+   typedef std::int64_t int_t;
 
    enum class EAttributeType{
       UNDEFINED, FLOAT, INT, STRING, TENSOR, GRAPH, FLOATS, INTS, STRINGS, TENSORS, GRAPHS
@@ -40,10 +44,10 @@ namespace SOFIE{   //Project code. System for Open, Fast Inference Engine
 //    protected:
       public:
       string name;
-      vector<int64_t> fDim;
+      vector<int_t> fDim;
       ETensorType fType;
       bool fIsSegment;
-      std::tuple<int64_t, int64_t> fSegmentIndex;
+      std::tuple<int_t, int_t> fSegmentIndex;
       bool fHasData;
 
       //temp
@@ -143,12 +147,9 @@ namespace SOFIE{   //Project code. System for Open, Fast Inference Engine
 
 
 
-}
-}
-}
 
 
-string print(const vector<std::int64_t>& vec, const onnx::GraphProto& graph){
+string print_nodelist(const std::set<int_t>& vec, const onnx::GraphProto& graph){
    string str {""};
    for (auto const& item : vec){
       str += std::to_string(item);
@@ -162,16 +163,42 @@ string print(const vector<std::int64_t>& vec, const onnx::GraphProto& graph){
    return str;
 }
 
+vector<int_t> topological_sort(const std::map<int_t, std::set<int_t>>& EdgesForward,
+                                    const std::map<int_t, std::set<int_t>>& EdgesBackward){
+   //returns a list of nodes in topological order, ended with -1
+   vector<int_t> sorted;
+   std::map<int_t, int_t>in_degree;
+   for (auto const& OpNodeID : EdgesBackward){
+      in_degree[OpNodeID.first] = OpNodeID.second.size();
+   }
+   std::queue<int_t, std::deque<int_t>> queue(std::deque<int_t>(EdgesForward.at(-1).begin(), EdgesForward.at(-1).end())); //put inputs into queue
+   while(!queue.empty()){
+      int_t this_node_id = queue.front();
+      sorted.push_back(this_node_id);
+      queue.pop();
+      if (this_node_id == -1) continue;
+      for (auto const& child_ID : EdgesForward.at(this_node_id)){
+         in_degree[child_ID] -= 1;
+         if (in_degree[child_ID] == 0){
+            queue.push(child_ID);
+         }
+      }
+   }
+   return sorted;
+   //you should check sorted.size() == no. of nodes in graph to make sure non-DAG
+}
 
-int main(){
+
+
+int test(){
    GOOGLE_PROTOBUF_VERIFY_VERSION;
+   //model I/O
    onnx::ModelProto model;
    std::fstream input("resnet18v1.onnx", std::ios::in | std::ios::binary);
    if (!model.ParseFromIstream(&input)){
       std::cerr << "Failed to parse onnx file." << endl;
       return -1;
    }
-   //model I/O
    cout << "fIRVersion: " << model.ir_version() << endl;
    cout << "fModelVersion:" << model.model_version() << endl;
    for (int i =0; i < model.opset_import_size(); i++){
@@ -181,33 +208,23 @@ int main(){
    cout << "size of int in sys:" << 8 * sizeof(int) << endl;
    cout << "size of int used by onnx:" << 8 * sizeof(model.ir_version()) << endl;
 
+
    vector<TMVA::Experimental::SOFIE::RDataNode> fDataNodes;
    vector<TMVA::Experimental::SOFIE::ROpNode> fOpNodes;
-
-
-
-
    const onnx::GraphProto& graph = model.graph();
    cout << "graph name: " << graph.name() << endl;
-
-
-
-
    /*
    for (int i=0; i < graph.node_size(); i++){
      cout << node[i].op_type() << endl;
    }
    */
 
-
-
-   std::map<string, std::int64_t> datanode_edge;
+   std::map<string, int_t> datanode_match;
    //size_t will be the index of the other node (send/receive) of the datanode edge
-   std::map<std::int64_t, vector<std::int64_t>> EdgesForward;
-   std::map<std::int64_t, vector<std::int64_t>> EdgesBackward;
+   std::map<int_t, std::set<int_t>> EdgesForward;
+   std::map<int_t, std::set<int_t>> EdgesBackward;
 
    std::set<string> initializer_names;
-
    for (int i=0; i < graph.initializer_size(); i++){
       initializer_names.insert(graph.initializer(i).name());
    }
@@ -215,53 +232,65 @@ int main(){
    for (int i=0; i < graph.input_size(); i++){
       if (initializer_names.find(graph.input(i).name()) == initializer_names.end()){
          //input datanode is not a weight node (has no initializer)
-         datanode_edge[graph.input(i).name()] = -1;
+         datanode_match[graph.input(i).name()] = -1;
       }
-
    }
    for (int i=0; i < graph.output_size(); i++){
       cout << graph.input(i).name() << endl;
-      datanode_edge[graph.output(i).name()] = -1;
+      datanode_match[graph.output(i).name()] = -1;
    }
 
-   cout << "datanode_edge after initialization" << endl;
-   for (auto const& item: datanode_edge){
+   cout << "datanode_match after initialization" << endl;
+   for (auto const& item: datanode_match){
       cout << item.first << ":" << item.second << endl;
    }
 
    for (int i=0; i< graph.node_size(); i++){
       for (int j=0; j < graph.node(i).input_size(); j++){
-         const string& datanode_name {graph.node(i).input(j)};
-         if (initializer_names.find(datanode_name) == initializer_names.end()){
-         //if input to this node is not an initializer
-            if(datanode_edge.find(datanode_name) != datanode_edge.end()){
-               EdgesForward[datanode_edge[datanode_name]].push_back(i);
-               EdgesBackward[i].push_back(datanode_edge[datanode_name]);
+         const string& input_name {graph.node(i).input(j)};
+         if (initializer_names.find(input_name) == initializer_names.end()){
+         //if this input to this node is not an initializer
+
+            if(datanode_match.find(input_name) != datanode_match.end()){
+               EdgesForward[datanode_match[input_name]].insert(i);
+               EdgesBackward[i].insert(datanode_match[input_name]);
             }else{
-               datanode_edge[datanode_name] = i;
+               datanode_match[input_name] = i;
             }
          }
       }
-
       for (int j=0; j < graph.node(i).output_size(); j++){
-         string datanode_name {graph.node(i).output(j)};
-         if(datanode_edge.find(datanode_name) != datanode_edge.end()){
-            EdgesBackward[datanode_edge[datanode_name]].push_back(i);
-            EdgesForward[i].push_back(datanode_edge[datanode_name]);
+         string output_name {graph.node(i).output(j)};
+         if(datanode_match.find(output_name) != datanode_match.end()){
+            EdgesBackward[datanode_match[output_name]].insert(i);
+            EdgesForward[i].insert(datanode_match[output_name]);
          }else{
-            datanode_edge[datanode_name] = i;
+            datanode_match[output_name] = i;
          }
       }
    }
 
    cout << "EdgesForward" << endl;
    for (auto const& item : EdgesForward){
-      cout << item.first << ":" << print(item.second, graph) << endl;
+      cout << item.first << ":" << print_nodelist(item.second, graph) << endl;
    }
    cout << "EdgesBackward" << endl;
    for (auto const& item : EdgesBackward){
-      cout << item.first << ":" << print(item.second, graph) << endl;
+      cout << item.first << ":" << print_nodelist(item.second, graph) << endl;
    }
+
+   vector<int64_t> eval_order =topological_sort(EdgesForward, EdgesBackward);
+   if (eval_order.size() != graph.node_size() +1){
+      cout << "Error: Computational graph not a DAG!" << endl;
+      return 1;
+   }
+   cout << "Topological sort: ";
+   for (auto const& item : eval_order){
+      cout << item << ", ";
+   }
+   cout << endl;
+
+
 
 
 
@@ -272,4 +301,12 @@ int main(){
 
    google::protobuf::ShutdownProtobufLibrary();
    return 0;
+}
+
+}
+}
+}
+
+int main(){
+   return TMVA::Experimental::SOFIE::test();
 }
