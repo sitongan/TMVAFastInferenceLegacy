@@ -19,7 +19,7 @@ namespace TMVA{
 namespace Experimental{
 namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluation
 
-   typedef std::int64_t int_t;
+   typedef std::int64_t int_t;   //int64 default int used in ONNX IR
 
    enum class EAttributeType{
       UNDEFINED, FLOAT, INT, STRING, TENSOR, GRAPH, FLOATS, INTS, STRINGS, TENSORS, GRAPHS   //order sensitive
@@ -40,24 +40,30 @@ namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluatio
       std::tuple<int_t, int_t> fSegmentIndex;
       bool fHasData;
 
-
-
    public:
-      //temp
-      const onnx::TensorProto& fTensorProto; //for data access
 
-      template<typename T>
-      T* GetData(); //return std::std::vector.data()
+      const onnx::TensorProto& fTensorProto; //TEMP, for data access
       RDataNode(const onnx::TensorProto& tensorproto);
-
    };
 
+
    template<typename T>
-   class RDataNodeData: public RDataNode{
+   class RDataNodeConcrete: public RDataNode{
    private:
       std::vector<T> fData;
    public:
+      T* GetData() {return fData.data();}       //return std::std::vector.data()
    };
+
+
+
+
+
+
+
+
+
+
 
    class RAttribute{ // interface for attributes
    public:

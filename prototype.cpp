@@ -21,7 +21,7 @@ int test(){
    GOOGLE_PROTOBUF_VERIFY_VERSION;
    //model I/O
    onnx::ModelProto model;
-   std::fstream input("LinearNN.onnx", std::ios::in | std::ios::binary);
+   std::fstream input("resnet18v1.onnx", std::ios::in | std::ios::binary);
    if (!model.ParseFromIstream(&input)){
       std::cerr << "Failed to parse onnx file." << endl;
       return -1;
@@ -106,16 +106,18 @@ int test(){
       cout << item.first << ":" << print_nodelist(item.second, graph) << endl;
    }
 
-   vector<int64_t> eval_order =topological_sort(EdgesForward, EdgesBackward);
+// NOT ACTUALLY NEEDED to do topological sort, the nodes in their order are already topologically sorted
+   vector<int64_t> eval_order = topological_sort(EdgesForward, EdgesBackward);
    if (eval_order.size() != graph.node_size() +1){
       cout << "Error: Computational graph not a DAG!" << endl;
       return 1;
    }
-   cout << "Topological sort: ";
-   for (auto const& item : eval_order){
-      cout << item << ", ";
-   }
-   cout << endl;
+
+//   cout << "Topological sort: ";
+//   for (auto const& item : eval_order){
+//      cout << item << ", ";
+//   }
+//   cout << endl;
 
 
    cout << graph.initializer(0).name() << endl;

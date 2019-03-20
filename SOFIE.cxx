@@ -21,13 +21,20 @@ TMVA::Experimental::SOFIE::RDataNode::RDataNode(const onnx::TensorProto& tensorp
 
 }
 
-void TMVA::Experimental::SOFIE::check_init_assert(){
+
+
+
+
+
+void TMVA::Experimental::SOFIE::check_init_assert()
+{
    static_assert(8 * sizeof(float) == 32, "TMVA-SOFIE is not supported on machines with non-32 bit float");
 }
 
 
 
-std::string TMVA::Experimental::SOFIE::print_nodelist(const std::set<int_t>& vec, const onnx::GraphProto& graph){
+std::string TMVA::Experimental::SOFIE::print_nodelist(const std::set<int_t>& vec, const onnx::GraphProto& graph)
+{
    std::string str {""};
    for (auto const& item : vec){
       str += std::to_string(item);
