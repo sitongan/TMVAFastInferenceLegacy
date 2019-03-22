@@ -46,6 +46,7 @@ namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluatio
       bool fHasData;
       struct DataContainer{
          void* ptr_vector;
+         int_t size;
          operator int64_t*() const{
             return static_cast<std::vector<int64_t>*>(ptr_vector)->data();
          }

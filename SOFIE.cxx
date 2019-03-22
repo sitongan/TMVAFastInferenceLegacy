@@ -11,12 +11,17 @@ SOFIE::RDataNode::RDataNode(const onnx::TensorProto& tensorproto): fTensorProto(
    }else{
       fName = "";
    }
+   fData.size = 1;
+   for (int i = 0; i < tensorproto.dims_size(); i++){
+      fShape.push_back(tensorproto.dims(i));
+      fData.size *= tensorproto.dims(i);
+   }
    switch(tensorproto.data_type()) {
       case onnx::TensorProto::FLOAT : {
          fType = ETensorType::FLOAT;
          if (tensorproto.has_raw_data()){
             const float64_t* raw_data = reinterpret_cast<const float64_t*>(tensorproto.raw_data().c_str());
-            fData.ptr_vector = new std::vector<float64_t>(raw_data, raw_data+5000);
+            fData.ptr_vector = new std::vector<float64_t>(raw_data, raw_data+fData.size);
             fHasData = true;
          }else if (tensorproto.float_data_size() > 0){
             const google::protobuf::RepeatedField<float64_t>& float_data = tensorproto.float_data();
@@ -28,9 +33,6 @@ SOFIE::RDataNode::RDataNode(const onnx::TensorProto& tensorproto): fTensorProto(
          break;
          }
       default: throw std::runtime_error("Data type in tensor " + fName + " not supported!");
-   }
-   for (int i = 0; i < tensorproto.dims_size(); i++){
-      fShape.push_back(tensorproto.dims(i));
    }
    fIsSegment = tensorproto.has_segment();
    if (fIsSegment){
