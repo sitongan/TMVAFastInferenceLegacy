@@ -7,117 +7,167 @@ using namespace std;
 using TMVA::Experimental::RTensor;
 
 
+
+class DataNode{
+public:
+
+struct DataType{
+   void* ptr_data;
+   operator int*() const{
+      return static_cast<int*>(ptr_data);
+   }
+   operator float*() const{
+      return static_cast<float*>(ptr_data);
+   }
+} fData;
+
+DataType GetData(){
+   return fData;
+}
+};
+
+
+
+
+
 class op;
 class op_add;
 class op_mul;
 
 class database{
 public:
-   virtual void EvalUpon(const op*) const =0;///
-   //virtual void EvalUpon(const op_add*) const =0;///
-   //virtual void EvalUpon(const op_mul*) const =0;///
+   virtual ~database() {}
+   string name;
+   virtual void EvalBy(const op*) const =0;///
+   //virtual void EvalBy(const op_add*) const =0;///
+   //virtual void EvalBy(const op_mul*) const =0;///
+   database(string n): name(n) {}
 };
 
 class dataint : public database{
 public:
-    void EvalUpon(const op* b) const override;///
-    //void EvalUpon(const op_add* b) const override;///
-    //void EvalUpon(const op_mul* b) const override;///
+    void EvalBy(const op* b) const override;///
+    //void EvalBy(const op_add* b) const override;///
+    //void EvalBy(const op_mul* b) const override;///
+    dataint(string n): database(n) {}
 };
 
 class datafloat : public database{
 public:
-    void EvalUpon(const op* b) const override;///
-    ///void EvalUpon(const op_add* b) const override;///
-    ///void EvalUpon(const op_mul* b) const override;///
+    void EvalBy(const op* b) const override;///
+    ///void EvalBy(const op_add* b) const override;///
+    ///void EvalBy(const op_mul* b) const override;///
+    datafloat(string n): database(n) {}
 };
 
+/*
 template<typename T>
 class datatemplate : public database{
-    void EvalUpon(const op* b) const override;///
-    ///void EvalUpon(const op_add* b) const override;///
-    ///void EvalUpon(const op_mul* b) const override;///
+    void EvalBy(const op* b) const override;///
+    ///void EvalBy(const op_add* b) const override;///
+    ///void EvalBy(const op_mul* b) const override;///
 };
+*/
 
 class op{
 public:
-   virtual void eval(const database*) const = 0;
-   virtual void eval(const dataint*) const {
+   virtual ~op() {}
+   virtual void getDataPtr(const database*) const = 0;
+   virtual void getDataPtr(std::vector<database*> input_list) = 0;
+   virtual void getDataPtr(const dataint*) const {
       cout << "this op does not support int" << endl;
    }
-   virtual void eval(const datafloat*) const {
+   virtual void getDataPtr(const datafloat*) const {
       cout << "this op does not support float" << endl;
    }
 };
 
 class op_add : public op{
 public:
-    void eval(const database* a) const override{
-      a->EvalUpon(this);
+    void getDataPtr(const database* a) const override{
+      a->EvalBy(this);
    }
-    void eval(const dataint* a) const override{
-      cout << "Eval add on int" << endl;
+   void getDataPtr( std::vector<database*> input_list)  override{
+      for (auto& input : input_list){
+         input->EvalBy(this);
+      }
+
    }
-    void eval(const datafloat* a) const override{
-      cout << "Eval add on float" << endl;
+
+
+    void getDataPtr(const dataint* a) const override{
+      cout << "Eval add on int " << a->name << endl;
    }
-   template<typename T>
-    void eval(const datatemplate<T>* a) const {
+    void getDataPtr(const datafloat* a) const override{
+      cout << "Eval add on float " << a->name << endl;
+   }
+   /*template<typename T>
+    void getDataPtr(const datatemplate<T>* a) const {
       cout << "Eval add on template" << endl;
-   }
+   }*/
 };
 
 class op_mul : public op{
 public:
-    void eval(const database* a) const override{
-      a->EvalUpon(this);
+    void getDataPtr(const database* a) const override{
+      a->EvalBy(this);
    }
-    void eval(const dataint* a) const override{
+   void getDataPtr( std::vector<database*> input_list)  override{
+      for (auto& input : input_list){
+         input->EvalBy(this);
+      }
+   }
+
+    void getDataPtr(const dataint* a) const override{
       cout << "Eval mul on int" << endl;
    }
-   /* void eval(const datafloat* a) const override{
+   /* void getDataPtr(const datafloat* a) const override{
       cout << "Eval mul on float" << endl;
    }*/
-   template<typename T>
-   void eval(const datatemplate<T>* a) const {
+
+   /*template<typename T>
+   void getDataPtr(const datatemplate<T>* a) const {
       cout << "Eval mul on template" << endl;
-   }
+   }*/
 };
 
 /*
-void dataint::EvalUpon(const op_add* b) const {
-   b->eval(this);
+void dataint::EvalBy(const op_add* b) const {
+   b->getDataPtr(this);
 }
-void dataint::EvalUpon(const op_mul* b) const {
-   b->eval(this);
+void dataint::EvalBy(const op_mul* b) const {
+   b->getDataPtr(this);
 }*/
 
-void dataint::EvalUpon(const op* b) const {
-   b->eval(this);
+void dataint::EvalBy(const op* b) const {
+   b->getDataPtr(this);
    //cout << "I was here" << endl;
 }
 /*
-void datafloat::EvalUpon(const op_add* b) const {
-   b->eval(this);
+void datafloat::EvalBy(const op_add* b) const {
+   b->getDataPtr(this);
 }
-void datafloat::EvalUpon(const op_mul* b) const {
-   b->eval(this);
+void datafloat::EvalBy(const op_mul* b) const {
+   b->getDataPtr(this);
 }*/
-void datafloat::EvalUpon(const op* b) const {
-   b->eval(this);
+void datafloat::EvalBy(const op* b) const {
+   b->getDataPtr(this);
 }
 /*
 template<typename T>
-void datatemplate<T>::EvalUpon(const op_add* b) const {
-   b->eval(this);
+void datatemplate<T>::EvalBy(const op_add* b) const {
+   b->getDataPtr(this);
 }
 template<typename T>
-void datatemplate<T>::EvalUpon(const op_mul* b) const {
-   b->eval(this);
-}*/
+void datatemplate<T>::EvalBy(const op_mul* b) const {
+   b->getDataPtr(this);
+}
 template<typename T>
-void datatemplate<T>::EvalUpon(const op* b) const {
-   b->eval(this);
+void datatemplate<T>::EvalBy(const op* b) const {
+   b->getDataPtr(this);
+}*/
+void* getdata(std::vector<float> input){
+   return static_cast<void*>(input.data());
 }
 
 int main(){
@@ -126,8 +176,8 @@ int main(){
    RTensor<float> x(data.data(), {2, 3});
    std::cout << x << std::endl;
 
-   dataint d_int;
-   datafloat d_float;
+   dataint d_int("int1");
+   datafloat d_float("float1");
    database* ptr_d_int = &d_int;
    database* ptr_d_float = &d_float;
    op_add o_add;
@@ -135,16 +185,38 @@ int main(){
    op* ptr_o_add = &o_add;
    op* ptr_o_mul = &o_mul;
 
-   ptr_o_add->eval(ptr_d_int);
-   ptr_o_add->eval(ptr_d_float);
-   ptr_o_mul->eval(ptr_d_int);
-   ptr_o_mul->eval(ptr_d_float);
-
-   datatemplate<int> d_template;
-   database* ptr_d_template = &d_template;
-   //ptr_o_add->eval(ptr_d_template);
-   //ptr_o_mul->eval(ptr_d_template);
+   ptr_o_add->getDataPtr(ptr_d_int);
 
 
+
+   ptr_o_add->getDataPtr(ptr_d_float);
+   ptr_o_mul->getDataPtr(ptr_d_int);
+   ptr_o_mul->getDataPtr(ptr_d_float);
+
+   //datatemplate<int> d_template;
+   //database* ptr_d_template = &d_template;
+   //ptr_o_add->getDataPtr(ptr_d_template);
+   //ptr_o_mul->getDataPtr(ptr_d_template);
+
+   cout << "Test input list" << endl;
+   std::vector<database*> input_list;
+   input_list.push_back(ptr_d_int);
+   input_list.push_back(ptr_d_float);
+   ptr_o_add->getDataPtr(input_list);
+
+
+   void* ptr_void;
+   ptr_void = new std::vector<int>;
+   static_cast<vector<int>*>(ptr_void)->push_back(1);
+   cout << static_cast<vector<int>*>(ptr_void)->front() << endl;
+
+
+
+   std::vector<float> v {100, 2, 3};
+   DataNode dn {v.data()};
+   float* ptr_float = dn.GetData();
+   cout << *ptr_float << endl;
    return 0;
+
+
 }

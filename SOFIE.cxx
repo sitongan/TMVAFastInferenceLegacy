@@ -1,14 +1,33 @@
 #include "SOFIE.hxx"
 
-using namespace TMVA::Experimental::SOFIE;
+namespace SOFIE = TMVA::Experimental::SOFIE;
+using namespace SOFIE;
 
-TMVA::Experimental::SOFIE::RDataNode::RDataNode(const onnx::TensorProto& tensorproto): fTensorProto(tensorproto)
+//constructor for graph.initializer (input with values)
+SOFIE::RDataNode::RDataNode(const onnx::TensorProto& tensorproto): fTensorProto(tensorproto)
 {
-   fType = static_cast<ETensorType>(tensorproto.data_type());
    if (tensorproto.has_name()){
       fName = tensorproto.name();
    }else{
       fName = "";
+   }
+   switch(tensorproto.data_type()) {
+      case onnx::TensorProto::FLOAT : {
+         fType = ETensorType::FLOAT;
+         if (tensorproto.has_raw_data()){
+            const float64_t* raw_data = reinterpret_cast<const float64_t*>(tensorproto.raw_data().c_str());
+            fData.ptr_vector = new std::vector<float64_t>(raw_data, raw_data+5000);
+            fHasData = true;
+         }else if (tensorproto.float_data_size() > 0){
+            const google::protobuf::RepeatedField<float64_t>& float_data = tensorproto.float_data();
+            fData.ptr_vector = new std::vector<float64_t>(float_data.begin(), float_data.end());
+            fHasData = true;
+         }else{
+            throw std::runtime_error("Tensor " + fName + " is not valid.");
+         }
+         break;
+         }
+      default: throw std::runtime_error("Data type in tensor " + fName + " not supported!");
    }
    for (int i = 0; i < tensorproto.dims_size(); i++){
       fShape.push_back(tensorproto.dims(i));
@@ -22,18 +41,26 @@ TMVA::Experimental::SOFIE::RDataNode::RDataNode(const onnx::TensorProto& tensorp
 }
 
 
+SOFIE::RDataNode::~RDataNode(){
+   if (fHasData){
+      switch(fType){
+         case ETensorType::FLOAT: {
+            delete static_cast<std::vector<float64_t>*>(fData.ptr_vector);
+         }
+      }
+   }
+}
 
 
 
-
-void TMVA::Experimental::SOFIE::check_init_assert()
+void SOFIE::check_init_assert()
 {
    static_assert(8 * sizeof(float) == 32, "TMVA-SOFIE is not supported on machines with non-32 bit float");
 }
 
 
 
-std::string TMVA::Experimental::SOFIE::print_nodelist(const std::set<int_t>& vec, const onnx::GraphProto& graph)
+std::string SOFIE::print_nodelist(const std::unordered_set<int_t>& vec, const onnx::GraphProto& graph)
 {
    std::string str {""};
    for (auto const& item : vec){
@@ -48,8 +75,8 @@ std::string TMVA::Experimental::SOFIE::print_nodelist(const std::set<int_t>& vec
    return str;
 }
 
-std::vector<int_t> TMVA::Experimental::SOFIE::topological_sort(const std::map<int_t, std::set<int_t>>& EdgesForward,
-                                    const std::map<int_t, std::set<int_t>>& EdgesBackward){
+std::vector<int_t> SOFIE::topological_sort(const std::map<int_t, std::unordered_set<int_t>>& EdgesForward,
+                                    const std::map<int_t, std::unordered_set<int_t>>& EdgesBackward){
    //returns a list of nodes in topological order, ended with -1
    std::vector<int_t> sorted;
    std::map<int_t, int_t>in_degree;

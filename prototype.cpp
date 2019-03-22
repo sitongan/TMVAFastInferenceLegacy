@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-
+#include <cstdio>
 
 
 
@@ -21,7 +21,7 @@ int test(){
    GOOGLE_PROTOBUF_VERIFY_VERSION;
    //model I/O
    onnx::ModelProto model;
-   std::fstream input("resnet18v1.onnx", std::ios::in | std::ios::binary);
+   std::fstream input("LinearNN.onnx", std::ios::in | std::ios::binary);
    if (!model.ParseFromIstream(&input)){
       std::cerr << "Failed to parse onnx file." << endl;
       return -1;
@@ -48,10 +48,10 @@ int test(){
 
    std::map<string, int_t> datanode_match;
    //size_t will be the index of the other node (send/receive) of the datanode edge
-   std::map<int_t, std::set<int_t>> EdgesForward;
-   std::map<int_t, std::set<int_t>> EdgesBackward;
+   std::map<int_t, std::unordered_set<int_t>> EdgesForward;
+   std::map<int_t, std::unordered_set<int_t>> EdgesBackward;
 
-   std::set<string> initializer_names;
+   std::unordered_set<string> initializer_names;
    for (int i=0; i < graph.initializer_size(); i++){
       initializer_names.insert(graph.initializer(i).name());
    }
@@ -119,12 +119,10 @@ int test(){
 //   }
 //   cout << endl;
 
-
-   cout << graph.initializer(0).name() << endl;
-   cout << graph.initializer(0).float_data_size() << endl;
-
-
-
+   RDataNode testnode (graph.initializer(0));
+   float* ptr_data = testnode.GetData();
+   cout.precision(17);
+   cout << ptr_data[4999] << endl;
 
 
 
