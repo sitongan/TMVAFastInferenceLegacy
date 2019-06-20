@@ -3,30 +3,39 @@
 namespace SOFIE = TMVA::Experimental::SOFIE;
 using namespace SOFIE;
 
-//constructor for graph.initializer (input with values)
-SOFIE::RDataNode::RDataNode(const onnx::TensorProto& tensorproto): fTensorProto(tensorproto)
+
+ template class SOFIE::RDataNode<float64_t>;   //explicit template initialization
+
+
+/*
+//constructor for graph.initializer (input with immutable values)
+SOFIE::RDataNode::RDataNode(const onnx::TensorProto& tensorproto)
 {
    if (tensorproto.has_name()){
       fName = tensorproto.name();
    }else{
       fName = "";
    }
-   fData.size = 1;
+   fLength = 1;
    for (int i = 0; i < tensorproto.dims_size(); i++){
       fShape.push_back(tensorproto.dims(i));
-      fData.size *= tensorproto.dims(i);
+      fLength *= tensorproto.dims(i);
    }
    switch(tensorproto.data_type()) {
       case onnx::TensorProto::FLOAT : {
          fType = ETensorType::FLOAT;
          if (tensorproto.has_raw_data()){
-            const float64_t* raw_data = reinterpret_cast<const float64_t*>(tensorproto.raw_data().c_str());
-            fData.ptr_vector = new std::vector<float64_t>(raw_data, raw_data+fData.size);
-            fHasData = true;
+            //const float64_t* raw_data = reinterpret_cast<const float64_t*>(tensorproto.raw_data().c_str());
+            //fDataVector = new std::vector<float64_t>(raw_data, raw_data+fLength);
+            //fHasData = true;
+            fImmutableData = reinterpret_cast<const float64_t*>(tensorproto.raw_data().c_str());
+            fHasImmutableData = true;
          }else if (tensorproto.float_data_size() > 0){
-            const google::protobuf::RepeatedField<float64_t>& float_data = tensorproto.float_data();
-            fData.ptr_vector = new std::vector<float64_t>(float_data.begin(), float_data.end());
-            fHasData = true;
+            //const google::protobuf::RepeatedField<float64_t>& float_data = tensorproto.float_data();
+            //fDataVector = new std::vector<float64_t>(tensorproto.float_data().begin(), tensorproto.float_data().end());
+            //fHasData = true;
+            fImmutableData = tensorproto.float_data().data();
+            fHasImmutableData = true;
          }else{
             throw std::runtime_error("Tensor " + fName + " is not valid.");
          }
@@ -34,25 +43,75 @@ SOFIE::RDataNode::RDataNode(const onnx::TensorProto& tensorproto): fTensorProto(
          }
       default: throw std::runtime_error("Data type in tensor " + fName + " not supported!");
    }
+
    fIsSegment = tensorproto.has_segment();
    if (fIsSegment){
       fSegmentIndex = std::make_tuple(tensorproto.segment().begin(),tensorproto.segment().end());
    }
-
-
 }
 
+SOFIE::RDataNode::RDataNode(const onnx::ValueInfoProto& valueinfoproto){
+   if (valueinfoproto.has_name()){
+      fName = valueinfoproto.name();
+   }else{
+      fName = "";
+   }
+   //fLength = 1;
+   for (int i = 0; i < valueinfoproto.type().tensor_type().shape().dim_size(); i++){
+      //fShape.push_back(valueinfoproto.type().tensor_type().shape().dim(i));
+      //fLength *= tensorproto.dims(i);
+   }
 
-SOFIE::RDataNode::~RDataNode(){
+
+
+   //int_t a = valueinfoproto.type().elem_type();
+}
+
+//copy constructor
+SOFIE::RDataNode::RDataNode(const void* data, const ETensorType& type, const std::vector<int_t>& shape, const std::string& name)
+   : fType(type), fName(name) {
+
+   fShape = shape;
+   fLength = 1;
+   for (int i = 0; i < fShape.size(); i++){
+      fLength *= fShape[i];
+   }
+
+   switch(fType) {
+      case ETensorType::FLOAT : {
+         const float64_t* raw_data = static_cast<const float64_t*>(data);
+         fDataVector = new std::vector<float64_t>(raw_data, raw_data+fLength);
+         break;
+         }
+      default: throw std::runtime_error("Data type in tensor " + fName + " not supported!");
+   }
+
+   fHasData = true;
+
+   }
+
+
+const void* SOFIE::RDataNode::RDataNode::GetData(){
    if (fHasData){
       switch(fType){
          case ETensorType::FLOAT: {
-            delete static_cast<std::vector<float64_t>*>(fData.ptr_vector);
+            return static_cast<std::vector<float64_t>*>(fDataVector)->data();
+            break;
          }
       }
    }
-}
+   if (fHasImmutableData){
+      switch(fType){
+         case ETensorType::FLOAT: {
+            return static_cast<const float64_t*>(fImmutableData);
+            break;
+         }
+      }
+   }
+   throw std::runtime_error("No data in RDataNode " + fName);
 
+}
+*/
 
 
 void SOFIE::check_init_assert()

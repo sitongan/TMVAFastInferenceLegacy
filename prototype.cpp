@@ -21,31 +21,28 @@ int test(){
    GOOGLE_PROTOBUF_VERIFY_VERSION;
    //model I/O
    onnx::ModelProto model;
-   std::fstream input("LinearNN.onnx", std::ios::in | std::ios::binary);
+//   std::fstream input("LinearNN.onnx", std::ios::in | std::ios::binary);
+   std::fstream input("resnet18v1.onnx", std::ios::in | std::ios::binary);
    if (!model.ParseFromIstream(&input)){
       std::cerr << "Failed to parse onnx file." << endl;
       return -1;
    }
+
+   //model level metadata
    cout << "fIRVersion: " << model.ir_version() << endl;
    cout << "fModelVersion:" << model.model_version() << endl;
    for (int i =0; i < model.opset_import_size(); i++){
       cout << "Opset version: " << model.opset_import(0).version() << endl;
    }
 
+   //extra check that onnx is using int_64
    cout << "size of int in sys:" << 8 * sizeof(int) << endl;
    cout << "size of int used by onnx:" << 8 * sizeof(model.ir_version()) << endl;
 
 
-   vector<TMVA::Experimental::SOFIE::RDataNode> fDataNodes;
-   vector<TMVA::Experimental::SOFIE::ROpNode> fOpNodes;
+   //build computational graph representations
    const onnx::GraphProto& graph = model.graph();
    cout << "graph name: " << graph.name() << endl;
-   /*
-   for (int i=0; i < graph.node_size(); i++){
-     cout << node[i].op_type() << endl;
-   }
-   */
-
    std::map<string, int_t> datanode_match;
    //size_t will be the index of the other node (send/receive) of the datanode edge
    std::map<int_t, std::unordered_set<int_t>> EdgesForward;
@@ -56,21 +53,29 @@ int test(){
       initializer_names.insert(graph.initializer(i).name());
    }
 
+   cout << "graph input names: [";
    for (int i=0; i < graph.input_size(); i++){
       if (initializer_names.find(graph.input(i).name()) == initializer_names.end()){
          //input datanode is not a weight node (has no initializer)
          datanode_match[graph.input(i).name()] = -1;
+         cout << graph.input(i).name() << ",";
       }
    }
-   for (int i=0; i < graph.output_size(); i++){
-      cout << graph.input(i).name() << endl;
-      datanode_match[graph.output(i).name()] = -1;
-   }
+   cout << "]" << endl;
 
-   cout << "datanode_match after initialization" << endl;
-   for (auto const& item: datanode_match){
-      cout << item.first << ":" << item.second << endl;
+   cout << "graph output names: [";
+   for (int i=0; i < graph.output_size(); i++){
+      datanode_match[graph.output(i).name()] = -1;
+      cout << graph.output(i).name() << ",";
    }
+   cout << "]" << endl;
+
+
+   cout << "check - datanode_match after initialization: [";
+   for (auto const& item: datanode_match){
+      cout << " " << item.first << ":" << item.second << ",";
+   }
+   cout << "]" << endl;
 
    for (int i=0; i< graph.node_size(); i++){
       for (int j=0; j < graph.node(i).input_size(); j++){
@@ -97,32 +102,94 @@ int test(){
       }
    }
 
-   cout << "EdgesForward" << endl;
+   cout << "EdgesForward: " << endl;
    for (auto const& item : EdgesForward){
       cout << item.first << ":" << print_nodelist(item.second, graph) << endl;
    }
-   cout << "EdgesBackward" << endl;
+   cout << endl;
+
+   cout << "EdgesBackward: " << endl;
    for (auto const& item : EdgesBackward){
       cout << item.first << ":" << print_nodelist(item.second, graph) << endl;
    }
+   cout << endl;
 
-// NOT ACTUALLY NEEDED to do topological sort, the nodes in their order are already topologically sorted
+   // NOT ACTUALLY NEEDED to do topological sort, the nodes in their order are already topologically sorted
    vector<int64_t> eval_order = topological_sort(EdgesForward, EdgesBackward);
    if (eval_order.size() != graph.node_size() +1){
       cout << "Error: Computational graph not a DAG!" << endl;
       return 1;
    }
+/*
 
-//   cout << "Topological sort: ";
-//   for (auto const& item : eval_order){
-//      cout << item << ", ";
-//   }
-//   cout << endl;
-
+   //test RDataNode constructor for TensorProto
    RDataNode testnode (graph.initializer(0));
-   float* ptr_data = testnode.GetData();
+   auto ptr_data = static_cast<float64_t*>(testnode.GetData());
+
    cout.precision(17);
    cout << ptr_data[4999] << endl;
+   //cout << ptr_data->at(4999) << endl;
+   //cout << ptr_data->data()[4999] << endl;
+   //cout << ptr_data->size() << endl;
+
+   RDataNode testnode_2 (ptr_data, ETensorType::FLOAT, {50, 100});
+   cout << "testnode 2" << endl;
+   auto ptr_data_2 = static_cast<float64_t*>(testnode_2.GetData());
+   cout << ptr_data_2[4999] << endl;
+*/
+
+   RDataNode<float64_t> testnode (graph.initializer(0)); //this line will be jitted
+   auto ptr_data = testnode.GetData();
+   cout.precision(17);
+   cout << ptr_data[4999] << endl;
+
+
+   cout << "INPUT DIMENSION: ";
+   for (int i = 0; i < graph.input_size(); i++){
+      if (initializer_names.find(graph.input(i).name()) != initializer_names.end()) continue;
+      cout << graph.input(i).name() << ":"  << graph.input(i).type().tensor_type().shape().dim_size();
+      cout << " [";
+      for (int j = 0; j <graph.input(i).type().tensor_type().shape().dim_size(); j++){
+         if (graph.input(i).type().tensor_type().shape().dim(j).has_dim_value()){
+            cout << graph.input(i).type().tensor_type().shape().dim(j).dim_value() << ",";
+         }else if (graph.input(i).type().tensor_type().shape().dim(j).has_dim_param()){
+            cout << graph.input(i).type().tensor_type().shape().dim(j).dim_param() << ",";
+         }
+      }
+      cout << "]" << endl;
+   }
+
+   cout << "OUTPUT DIMENSION: ";
+   for (int i = 0; i < graph.output_size(); i++){
+      cout << graph.output(i).name() << ":"  << graph.output(i).type().tensor_type().shape().dim_size();
+      cout << " [";
+      for (int j = 0; j <graph.output(i).type().tensor_type().shape().dim_size(); j++){
+         if (graph.output(i).type().tensor_type().shape().dim(j).has_dim_value()){
+            cout << graph.output(i).type().tensor_type().shape().dim(j).dim_value() << ",";
+         }else if (graph.output(i).type().tensor_type().shape().dim(j).has_dim_param()){
+            cout << graph.output(i).type().tensor_type().shape().dim(j).dim_param() << ",";
+         }
+      }
+      cout << "]" << endl;
+   }
+
+   cout << "node idx: input to node : output from node" << endl;
+   for (int i = 0; i < graph.node_size(); i++){
+      cout << i << ":";
+      for (int j = 0; j < graph.node(i).input_size(); j++){
+          if (initializer_names.find(graph.node(i).input(j)) != initializer_names.end()) continue;
+          cout << " " << graph.node(i).input(j) << ",";
+      }
+      cout << ":";
+      for (int j = 0; j < graph.node(i).output_size(); j++){
+          cout << " " << graph.node(i).output(j) << ",";
+      }
+      cout << endl;
+   }
+
+
+
+
 
 
 

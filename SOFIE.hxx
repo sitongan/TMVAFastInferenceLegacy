@@ -12,6 +12,7 @@
 #include <deque>
 #include <cstdint> //int64_t: used for ONNX IR
 #include <cstddef> // std::size_t
+#include <cassert>
 
 #include "onnx.pb.h"
 
@@ -20,9 +21,7 @@ namespace Experimental{
 namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluation
 
    typedef std::int64_t int_t;   //int64 default int used in onnx.pb.h
-
    typedef float float64_t;
-   typedef std::int64_t int64_t;
 
    enum class EAttributeType{
       UNDEFINED, FLOAT, INT, STRING, TENSOR, GRAPH, FLOATS, INTS, STRINGS, TENSORS, GRAPHS   //order sensitive
@@ -34,44 +33,87 @@ namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluatio
    };
    //Supported:FLOAT
 
-
+   template <typename T>
    class RDataNode{
-
-   private:
-      std::string fName;
+      std::string fName = "";
       std::vector<int_t> fShape;
-      ETensorType fType;
+      //ETensorType fType;
       bool fIsSegment;
       std::tuple<int_t, int_t> fSegmentIndex;
-      bool fHasData;
-      struct DataContainer{
-         void* ptr_vector;
-         int_t size;
-         operator int64_t*() const{
-            return static_cast<std::vector<int64_t>*>(ptr_vector)->data();
-         }
-         operator float64_t*() const{
-            return static_cast<std::vector<float64_t>*>(ptr_vector)->data();
-         }
-      } fData;
-
-
+      bool fHasData = false;
+      bool fHasImmutableData = false;
+      int_t fLength;
+      std::vector<T>* fDataVector;
+      const T* fImmutableData;
 
    public:
-      const onnx::TensorProto& fTensorProto; //TEMP, for data access
       ~RDataNode();
       RDataNode(const onnx::TensorProto& tensorproto);
-      DataContainer GetData(){return fData;}
+      RDataNode(const onnx::ValueInfoProto& valueinfoproto);
+      RDataNode(const T* data, const std::vector<int_t>& shape, const std::string& name = "");
+      const T* GetData();
+      const std::vector<int_t>& GetShape(){return fShape;}
 
+   private:
+      template<class Q = T>
+      typename std::enable_if<std::is_same<Q, float64_t>::value, const T*>::type get_protobuf_datafield(const onnx::TensorProto& tensorproto)
+      {
+          return fImmutableData = tensorproto.float_data().data();
+      }
    };
 
 
 
+   template <typename T>
+   SOFIE::RDataNode<T>::RDataNode(const onnx::TensorProto& tensorproto)
+   {
+      if (tensorproto.has_name()){
+         fName = tensorproto.name();
+      }
+      fLength = 1;
+      for (int i = 0; i < tensorproto.dims_size(); i++){
+         fShape.push_back(tensorproto.dims(i));
+         fLength *= tensorproto.dims(i);
+      }
 
+      if (tensorproto.has_data_location() && tensorproto.data_location() == onnx::TensorProto::EXTERNAL ){
+         throw std::runtime_error("Tensors with externally stored weights have not been supported yet.");
+      }
 
+      if (tensorproto.has_raw_data()){
+         //const float64_t* raw_data = reinterpret_cast<const float64_t*>(tensorproto.raw_data().c_str());
+         //fDataVector = new std::vector<float64_t>(raw_data, raw_data+fLength);
+         //fHasData = true;
+         fImmutableData = reinterpret_cast<const T*>(tensorproto.raw_data().c_str());
+         fHasImmutableData = true;
+      }else{
+         get_protobuf_datafield(tensorproto);
+         fHasImmutableData = true;
+      }
 
+      fIsSegment = tensorproto.has_segment();
+      if (fIsSegment){
+         fSegmentIndex = std::make_tuple(tensorproto.segment().begin(),tensorproto.segment().end());
+      }
+   }
 
+   template <typename T>
+   SOFIE::RDataNode<T>::~RDataNode(){
+      if (fHasData){
+         delete fDataVector;
+      }
+   }
 
+   template <typename T>
+   const T* SOFIE::RDataNode<T>::GetData(){
+      if (fHasImmutableData){
+         return fImmutableData;
+      }else if (fHasData){
+         return fDataVector->data();
+      }else{
+         throw std::runtime_error("Tensor " + fName + " has no data.");
+      }
+   }
 
 
    class RAttribute{ // interface for attributes
@@ -97,6 +139,11 @@ namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluatio
    };
    //template specialisation for list of attributes?
 
+   class ROnnxOperator{
+   public:
+
+   };
+
    class ROpNode{
    public:
 
@@ -107,9 +154,9 @@ namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluatio
       ROpNode(const onnx::NodeProto& nodeproto): fNodeProto(nodeproto) {}
 
    //private:
-      std::vector<RDataNode*> fWeights;
-      std::vector<RDataNode*> fInputs;
-      std::vector<RDataNode*> fOutputs;
+      //std::vector<RDataNode*> fWeights;
+      //std::vector<RDataNode*> fInputs;
+      //std::vector<RDataNode*> fOutputs;
       std::vector<RAttribute*> fAttributes;
       std::string fOperator;
       //todo: map from string to function pointers for the operator
@@ -123,7 +170,7 @@ namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluatio
       std::string fName;
       std::map<int_t, std::vector<int_t>> fEdgesForward;
       std::map<int_t, std::vector<int_t>> fEdgesBackward;
-      std::vector<RDataNode> fDataNodes;
+      //std::vector<RDataNode> fDataNodes;
       std::vector<ROpNode> fOpNodes;
    };
 
