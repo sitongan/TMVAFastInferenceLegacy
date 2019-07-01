@@ -1,28 +1,51 @@
-pytorch0.4:Í
-ù
+pytorch0.3:æ
+Å
 0
-12"Add2ègenerateSimpleAdd.py(10): forward
-/anaconda3/lib/python3.6/site-packages/torch/nn/modules/module.py(477): _slow_forward
-/anaconda3/lib/python3.6/site-packages/torch/nn/modules/module.py(487): __call__
-/anaconda3/lib/python3.6/site-packages/torch/jit/__init__.py(251): forward
-/anaconda3/lib/python3.6/site-packages/torch/nn/modules/module.py(489): __call__
-/anaconda3/lib/python3.6/site-packages/torch/jit/__init__.py(196): get_trace_graph
-/anaconda3/lib/python3.6/site-packages/torch/onnx/utils.py(192): _trace_and_get_graph_from_model
-/anaconda3/lib/python3.6/site-packages/torch/onnx/utils.py(224): _model_to_graph
-/anaconda3/lib/python3.6/site-packages/torch/onnx/utils.py(281): _export
-/anaconda3/lib/python3.6/site-packages/torch/onnx/utils.py(104): export
-/anaconda3/lib/python3.6/site-packages/torch/onnx/__init__.py(27): export
-generateSimpleAdd.py(17): <module>
-torch-jit-exportZ
-0
-
-
-Z
-1
-
-
-b
-2
-
-
-B	
+13"Add2´generateSimpleAdd.py(10): forward
+/Library/Python/2.7/site-packages/torch/nn/modules/module.py(465): _slow_forward
+/Library/Python/2.7/site-packages/torch/nn/modules/module.py(475): __call__
+/Library/Python/2.7/site-packages/torch/jit/__init__.py(109): forward
+/Library/Python/2.7/site-packages/torch/nn/modules/module.py(477): __call__
+/Library/Python/2.7/site-packages/torch/jit/__init__.py(77): get_trace_graph
+/Library/Python/2.7/site-packages/torch/onnx/utils.py(144): _trace_and_get_graph_from_model
+/Library/Python/2.7/site-packages/torch/onnx/utils.py(177): _model_to_graph
+/Library/Python/2.7/site-packages/torch/onnx/utils.py(226): _export
+/Library/Python/2.7/site-packages/torch/onnx/utils.py(94): export
+/Library/Python/2.7/site-packages/torch/onnx/__init__.py(26): export
+generateSimpleAdd.py(24): <module>
+
+Å
+3
+24"Add2´generateSimpleAdd.py(10): forward
+/Library/Python/2.7/site-packages/torch/nn/modules/module.py(465): _slow_forward
+/Library/Python/2.7/site-packages/torch/nn/modules/module.py(475): __call__
+/Library/Python/2.7/site-packages/torch/jit/__init__.py(109): forward
+/Library/Python/2.7/site-packages/torch/nn/modules/module.py(477): __call__
+/Library/Python/2.7/site-packages/torch/jit/__init__.py(77): get_trace_graph
+/Library/Python/2.7/site-packages/torch/onnx/utils.py(144): _trace_and_get_graph_from_model
+/Library/Python/2.7/site-packages/torch/onnx/utils.py(177): _model_to_graph
+/Library/Python/2.7/site-packages/torch/onnx/utils.py(226): _export
+/Library/Python/2.7/site-packages/torch/onnx/utils.py(94): export
+/Library/Python/2.7/site-packages/torch/onnx/__init__.py(26): export
+generateSimpleAdd.py(24): <module>
+torch-jit-exportZ
+0
+
+
+
+Z
+1
+
+
+
+Z
+2
+
+
+
+b
+4
+
+
+
+B

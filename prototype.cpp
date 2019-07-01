@@ -5,6 +5,8 @@
 
 
 #include "SOFIE.hxx"
+#include "RGraph.hxx"
+#include "RDataNode.hxx"
 
 using std::vector;
 using std::string;
@@ -15,18 +17,52 @@ using std::cout;
 using std::endl;
 
 using namespace TMVA::Experimental::SOFIE;
+using namespace std;
 
+void print_vector(vector<float>& t){
+   for (auto const& i: t){
+      cout << i << " ";
+   }
+   cout << "\n";
+}
 
 int test(){
    GOOGLE_PROTOBUF_VERIFY_VERSION;
    //model I/O
    onnx::ModelProto model;
-//   std::fstream input("LinearNN.onnx", std::ios::in | std::ios::binary);
-   std::fstream input("resnet18v1.onnx", std::ios::in | std::ios::binary);
+   std::fstream input("LinearNN.onnx", std::ios::in | std::ios::binary);
+//   std::fstream input("resnet18v1.onnx", std::ios::in | std::ios::binary);
    if (!model.ParseFromIstream(&input)){
       std::cerr << "Failed to parse onnx file." << endl;
       return -1;
    }
+
+
+   RGraph graph_test(model.graph());
+
+
+   RDataNode<float>* testtmp = static_cast<RDataNode<float>*>(graph_test.GetRDataNode("2"));
+   cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
+   cout << "length: " << to_string(testtmp->GetLength()) << endl;
+   //std::vector<float> t_a(const_cast<float*>(testtmp->GetData()), const_cast<float*>(testtmp->GetData()) + testtmp->GetLength());
+   //cout << "content :";
+   //print_vector(t_a);
+
+   /*
+   std::vector<float> input_a = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
+   RDataNode<float>* dnode = new RDataNode<float>(input_a, {4,1,5,1}, "1");
+   std::vector<float> t_a(const_cast<float*>(dnode->GetData()), const_cast<float*>(dnode->GetData()) + dnode->GetLength());
+   print_vector(t_a);
+   cout << endl;
+   UTILITY::unidirectional_broadcast(*dnode, {2,4,2,5,2});
+   std::vector<float> t_b(const_cast<float*>(dnode->GetData()), const_cast<float*>(dnode->GetData()) + dnode->GetLength());
+   print_vector(t_b);
+   cout << endl;
+   */
+
+   google::protobuf::ShutdownProtobufLibrary();
+
+   exit(0);
 
    //model level metadata
    cout << "fIRVersion: " << model.ir_version() << endl;
@@ -104,18 +140,18 @@ int test(){
 
    cout << "EdgesForward: " << endl;
    for (auto const& item : EdgesForward){
-      cout << item.first << ":" << print_nodelist(item.second, graph) << endl;
+      cout << item.first << ":" << INTERNAL::print_nodelist(item.second, graph) << endl;
    }
    cout << endl;
 
    cout << "EdgesBackward: " << endl;
    for (auto const& item : EdgesBackward){
-      cout << item.first << ":" << print_nodelist(item.second, graph) << endl;
+      cout << item.first << ":" << INTERNAL::print_nodelist(item.second, graph) << endl;
    }
    cout << endl;
 
    // NOT ACTUALLY NEEDED to do topological sort, the nodes in their order are already topologically sorted
-   vector<int64_t> eval_order = topological_sort(EdgesForward, EdgesBackward);
+   vector<int64_t> eval_order = INTERNAL::topological_sort(EdgesForward, EdgesBackward);
    if (eval_order.size() != graph.node_size() +1){
       cout << "Error: Computational graph not a DAG!" << endl;
       return 1;
@@ -138,7 +174,7 @@ int test(){
    cout << ptr_data_2[4999] << endl;
 */
 
-   RDataNode<float64_t> testnode (graph.initializer(0)); //this line will be jitted
+   RDataNode<float> testnode (graph.initializer(0)); //this line will be jitted
    auto ptr_data = testnode.GetData();
    cout.precision(17);
    cout << ptr_data[4999] << endl;
