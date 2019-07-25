@@ -4,9 +4,8 @@
 
 
 
-#include "SOFIE.hxx"
 #include "RGraph.hxx"
-#include "RDataNode.hxx"
+#include "SOFIE_utilities.hxx"
 
 using std::vector;
 using std::string;
@@ -19,12 +18,39 @@ using std::endl;
 using namespace TMVA::Experimental::SOFIE;
 using namespace std;
 
-void print_vector(vector<float>& t){
+template<typename T>
+void print_vector(vector<T>& t){
    for (auto const& i: t){
       cout << i << " ";
    }
    cout << "\n";
 }
+/*
+#include "ROperator_Transpose.hxx"
+#include <vector>
+int test_2(){
+   vector<int> a;
+   for (int i = 0; i < 1000; i++){
+      a.push_back(i);
+   }
+   print_vector(a);
+   vector<int> b(1000, 0);
+   OPERATION::Transpose_reference(a.data(), {4, 2, 5, 5, 5}, b.data(), {5, 4, 5, 2, 5}, {2, 0, 4, 1, 3});
+   print_vector(b);
+   return 0;
+}
+*/
+/*
+#include "ROperator_Gemm.hxx"
+int test_3(){
+   vector<float> a (50, 1.0);
+   vector<float> b (50, 2.0);
+   vector<float> c (25, 0.0);
+   vector<float> y (25, 0.0);
+   OPERATION::Gemm_reference(a.data(),b.data(), c.data(), y.data(),5, 10, 5);
+   print_vector(y);
+}
+*/
 
 int test(){
    GOOGLE_PROTOBUF_VERIFY_VERSION;
@@ -41,12 +67,33 @@ int test(){
    RGraph graph_test(model.graph());
 
 
-   RDataNode<float>* testtmp = static_cast<RDataNode<float>*>(graph_test.GetRDataNode("2"));
+   RDataNode<float>* testtmp;
+
+   RDataNode<float>* testinput= static_cast<RDataNode<float>*>(graph_test.GetRDataNode("input.1"));
+   vector<float> test_input(6400, 1.0);
+   testinput->Update(std::move(test_input), {64, 100});
+   cout << "shape: " << to_string(testinput->GetShape()[0]) << "," << to_string(testinput->GetShape()[1]) << endl;
+   cout << "length: " << to_string(testinput->GetLength()) << endl;
+   graph_test.Forward();
+
+   testtmp = static_cast<RDataNode<float>*>(graph_test.GetRDataNode("0.weight"));
    cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
    cout << "length: " << to_string(testtmp->GetLength()) << endl;
+   testtmp = static_cast<RDataNode<float>*>(graph_test.GetRDataNode("0.bias"));
+   cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
+   cout << "length: " << to_string(testtmp->GetLength()) << endl;
+
+
+   testtmp = static_cast<RDataNode<float>*>(graph_test.GetRDataNode("7"));
+   cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
+   cout << "length: " << to_string(testtmp->GetLength()) << endl;
+   vector<float> output (testtmp->GetData(), testtmp->GetData() + 10);
+   print_vector(output);
    //std::vector<float> t_a(const_cast<float*>(testtmp->GetData()), const_cast<float*>(testtmp->GetData()) + testtmp->GetLength());
    //cout << "content :";
    //print_vector(t_a);
+
+
 
    /*
    std::vector<float> input_a = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
@@ -61,7 +108,6 @@ int test(){
    */
 
    google::protobuf::ShutdownProtobufLibrary();
-
    exit(0);
 
    //model level metadata

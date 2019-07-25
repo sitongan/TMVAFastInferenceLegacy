@@ -1,17 +1,16 @@
 #ifndef TMVA_SOFIE_RGRAPH
 #define TMVA_SOFIE_RGRAPH
 
-#include "SOFIE.hxx"
-#include "ROperator.hxx"
+#include "SOFIE_common.hxx"
 #include "RDataNode.hxx"
-#include "ROperator_Gemm.hxx"
+#include "ROperator.hxx"
+
 
 namespace TMVA{
 namespace Experimental{
 namespace SOFIE{
 
-class RGraph;
-class ROperator;
+
 
 class RGraph{
 private:
@@ -29,8 +28,14 @@ private:
    const onnx::GraphProto& fONNXGraph;
 
    ROperator* make_ROperator(const onnx::NodeProto& nodeproto){
-      return INTERNAL::mapOptypeOperator[nodeproto.op_type()](nodeproto, *(this));
+      auto find = INTERNAL::mapOptypeOperator.find(nodeproto.op_type());
+      if (find == INTERNAL::mapOptypeOperator.end()){
+         throw std::runtime_error("TMVA::SOFIE - Operator type " + nodeproto.op_type() + " is not yet supported");
+      }else{
+         return (find->second)(nodeproto, *(this));
+      }
    }
+
 
 public:
 
@@ -40,8 +45,8 @@ public:
       std::unordered_set<std::string> initializer_names;
       for (int i=0; i < fONNXGraph.initializer_size(); i++){
          initializer_names.insert(fONNXGraph.initializer(i).name());
-         switch(fONNXGraph.initializer(i).data_type()){
-            case onnx::TensorProto::FLOAT : {
+         switch(static_cast<ETensorType>(fONNXGraph.initializer(i).data_type())){
+            case ETensorType::FLOAT : {
                fDataNodeMap[fONNXGraph.initializer(i).name()] = new RDataNode<float>(fONNXGraph.initializer(i));
                break;
             }
@@ -66,18 +71,20 @@ public:
          }
       }
 
-   ROperator* test = make_ROperator(fONNXGraph.node(0));
-   //ROperator* test = INTERNAL::make_ROperator_Gemm(fONNXGraph.node(0), *(this));
-   /*
+      //ROperator* test = make_ROperator(fONNXGraph.node(0));
+
       for (int i=0; i < fONNXGraph.node_size(); i++){
          fOperatorNode.push_back(make_ROperator(fONNXGraph.node(i)));
       }
-      */
+
    }
 
    ~RGraph(){
       for (auto const& x : fDataNodeMap){
          delete x.second;
+      }
+      for (auto const& x: fOperatorNode){
+         delete x;
       }
    }
 
@@ -98,8 +105,15 @@ public:
          throw std::runtime_error("Datanode with name " + name + " already exist\n");
       }
    }
-};
 
+
+   void Forward(){
+      for (int i=0; i < fONNXGraph.node_size(); i++){
+         fOperatorNode[i]->Forward_reference();
+      }
+   }
+
+};
 
 
 }//SOFIE

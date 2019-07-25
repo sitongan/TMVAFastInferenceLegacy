@@ -1,11 +1,14 @@
 
 #include "RDataNode.hxx"
 #include <cstring>
+#include <cstdlib>
 
 namespace TMVA{
 namespace Experimental{
 namespace SOFIE{
 
+//constructor for immutable tensorproto (weights)
+//construct a wrapper around the underlying data
 template <typename T>
 RDataNode<T>::RDataNode(const onnx::TensorProto& tensorproto)
 {
@@ -30,29 +33,19 @@ RDataNode<T>::RDataNode(const onnx::TensorProto& tensorproto)
       fImmutableData = reinterpret_cast<const T*>(tensorproto.raw_data().c_str());
       fHasImmutableData = true;
    }else{
-      get_protobuf_datafield(tensorproto);
+      fImmutableData = get_protobuf_datafield(tensorproto);
       fHasImmutableData = true;
    }
 
    fIsSegment = tensorproto.has_segment();
    if (fIsSegment){
       fSegmentIndex = std::make_tuple(tensorproto.segment().begin(),tensorproto.segment().end());
+      throw std::runtime_error("Tensors with segments have not been supported yet.");
    }
 }
 
-template <typename T>
-RDataNode<T>::RDataNode(const std::vector<int_t>& shape, const std::string& name) :fName(name){
-   set_fType();
-   fShape.assign(shape.begin(), shape.end());
-   fLength = 1;
-   for (auto const& dim_size : fShape){
-      fLength *= dim_size;
-   }
-   fDataVector = new std::vector<T>();
-   fDataVector->reserve(fLength);
-   fHasData = true;
-}
 
+//constructor for mutable tensors (shape from valueinfoproto)
 template <typename T>
 RDataNode<T>::RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::unordered_map<std::string, int_t>& dimensionDenotationMap){
    set_fType();
@@ -80,10 +73,11 @@ RDataNode<T>::RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::u
       fLength *= dim;
    }
    fDataVector = new std::vector<T>();
-   fDataVector->reserve(fLength);
+   fDataVector->resize(fLength);
    fHasData = true;
 }
 
+//copy constructor from a std vector
 template <typename T>
 RDataNode<T>::RDataNode(const std::vector<T>& input, const std::vector<int_t>& shape, const std::string& name) :fName(name){
    set_fType();
@@ -92,6 +86,23 @@ RDataNode<T>::RDataNode(const std::vector<T>& input, const std::vector<int_t>& s
    fDataVector = new std::vector<T>(input);
    fHasData = true;
 }
+
+//constructor by shape and type
+template <typename T>
+RDataNode<T>::RDataNode(const std::vector<int_t>& shape, const std::string& name) :fName(name){
+   set_fType();
+   fShape.assign(shape.begin(), shape.end());
+   fLength = 1;
+   for (auto const& dim_size : fShape){
+      fLength *= dim_size;
+   }
+   fDataVector = new std::vector<T>();
+   fDataVector->resize(fLength);
+   fHasData = true;
+}
+
+
+
 
 template <typename T>
 RDataNode<T>::~RDataNode(){
@@ -112,23 +123,129 @@ const T* RDataNode<T>::GetData(){
 }
 
 template <typename T>
-void RDataNode<T>::Update(std::vector<T>& newDataVector, std::vector<int_t> newShape){
+T* RDataNode<T>::GetWriteTarget(){
+   if (fHasImmutableData){
+      throw std::runtime_error("Tensor " + fName + " is not mutable.");
+   }else if (fHasData){
+      return fDataVector->data();
+   }else{
+      throw std::runtime_error("Tensor " + fName + " has no data.");
+   }
+}
+
+
+template <typename T>
+void RDataNode<T>::Update(std::vector<T>&& newDataVector, std::vector<int_t> newShape){
    if (fHasImmutableData){
       fHasImmutableData = false;
    }else if(fHasData){
       delete fDataVector;
    }
-   fDataVector = new std::vector<T>(std::move(newDataVector));
-   fHasData = true;
-   fShape.assign(newShape.begin(), newShape.end());
    fLength = 1;
+   fShape.assign(newShape.begin(), newShape.end());
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
    }
+   if (fLength != newDataVector.size()) throw std::runtime_error("TMVA::SOFIE - RDataNode Update Error, size inconsistency");
+   fDataVector = new std::vector<T>(std::move(newDataVector));
+   fHasData = true;
+
 }
 
 template class RDataNode<float>;   //explicit template initialization
 
+
+
+
+
+
+template<typename T>
+static inline void copy_vector_data(int_t no_of_copies, int_t input_size, T* input, T* target){  //only visible within this translation unit
+   std::memcpy(target, input, input_size * sizeof(T));
+   int_t already_copied = 1;
+
+   while (already_copied * 2 <= no_of_copies){
+      std::memcpy(target + already_copied * input_size, target, already_copied * input_size * sizeof(T));
+      already_copied *= 2;
+   }
+
+   if (already_copied < no_of_copies){
+      std::memcpy(target + already_copied * input_size, target, (no_of_copies - already_copied) * input_size * sizeof(T));
+   }
+}
+
+
+
+template<typename T>
+std::vector<T> UTILITY::Unidirectional_broadcast(const T* original_data, const std::vector<int_t>& original_shape, const std::vector<int_t>& target_shape, std::string original_name)
+{
+
+      std::vector<int_t> current_shape(original_shape);
+      int original_length = 1;
+      int target_length = 1;
+      for (int i = 0; i < original_shape.size(); i++){
+         original_length *= original_shape[i];
+      }
+      for (int i = 0; i < target_shape.size(); i++){
+         target_length *= target_shape[i];
+      }
+      if (original_shape.size() > target_shape.size())   throw std::runtime_error("TMVA::SOFIE Error in Broadcasting Tensor " + original_name + ": original array has more dimensions than target shape ");
+      auto it = current_shape.begin();
+      while (current_shape.size() < target_shape.size()){
+         it = current_shape.insert(it, 1);
+      }
+
+      std::vector<T> new_datavector(target_length);
+      std::memcpy(new_datavector.data(), original_data, original_length * sizeof(T));
+
+      for (int dim = target_shape.size() - 1; dim >= 0; dim--){
+         if (current_shape[dim] != target_shape[dim]){
+            if (current_shape[dim] != 1) throw std::runtime_error ("TMVA::SOFIE Error in Broadcasting Tensor "  + original_name + " at least one dimension to be broadcast  of the original array is not 1");
+
+            int_t group_size = 1;
+            int_t no_of_groups = 1;
+            int_t no_of_copies = target_shape[dim];
+
+            for (int i = dim + 1; i < target_shape.size(); i++){
+               group_size *= current_shape[i];
+            }
+            for (int i = 0; i < dim; i++){
+               no_of_groups *= current_shape[i];
+            }
+
+            for (int curr_group = no_of_groups - 1; curr_group >= 0; curr_group--){
+               copy_vector_data<T>(no_of_copies, group_size, new_datavector.data() + curr_group * group_size,new_datavector.data() + curr_group * group_size * no_of_copies);
+            }
+
+            current_shape[dim] = target_shape[dim];
+         }
+      }
+
+      return new_datavector;
+
+}
+
+std::vector<int_t> UTILITY::Position_to_indices(int_t position, const std::vector<int_t>& shape)
+{
+   std::vector<int_t> ret(shape.size(), 0);
+   auto to_divide = position;
+   for (int i = shape.size() - 1; i >= 0; i--){
+      auto divresult = div(to_divide, shape[i]);
+      ret[i] = divresult.rem;
+      to_divide = divresult.quot;
+   }
+   return ret;
+}
+
+int_t UTILITY::Indices_to_position(const std::vector<int_t>& indices, const std::vector<int_t>& shape){
+   int_t ret = 0;
+   int_t rolling_length = 1;
+   for (int i = indices.size() - 1; i >= 0; i--){
+      ret += indices[i] * rolling_length;
+      rolling_length *= shape[i];
+   }
+   return ret;
+}
 
 
 

@@ -1,32 +1,26 @@
-CXX = c++
+CXX = g++
 CPPFLAGS = --std=c++11
 PROTOBUF = `pkg-config --cflags --libs protobuf`
 ROOTCONFIG = `root-config --cflags --glibs`
 
-SOFIEOBJECT = SOFIE.o ROperator_Gemm.o RDataNode.o
+SOFIEOBEJCT = RDataNode.o ROperator_Gemm.o ROperator_Transpose.o ROperator_Relu.o
+SOFIEHEADER = RGraph.hxx ROperator.hxx ROperator_Gemm.hxx ROperator_Transpose.hxx ROperator_Relu.hxx
+SOFIE = $(SOFIEOBEJCT) $(SOFIEHEADER)
 
-prototype: prototype.o sofie
-	${CXX} -o prototype prototype.o $(SOFIEOBJECT) onnx.pb.cc $(ROOTCONFIG) $(PROTOBUF) ${CPPFLAGS}
+prototype: prototype.o $(SOFIE)
+	${CXX} -o prototype prototype.o $(SOFIEOBEJCT) onnx.pb.cc $(ROOTCONFIG) $(PROTOBUF) ${CPPFLAGS}
 
 prototype.o: prototype.cpp
 	${CXX} ${CPPFLAGS} -c prototype.cpp
 
-sofie: $(SOFIEOBJECT)
-
-SOFIE.o: SOFIE.hxx SOFIE.cxx
-	${CXX} ${CPPFLAGS} -c SOFIE.cxx
-
-RDataNode.o: RDataNode.hxx RDataNode.cxx
-	${CXX} ${CPPFLAGS} -c RDataNode.cxx
-
-ROperator_Gemm.o: ROperator_Gemm.hxx ROperator_Gemm.cxx
-	${CXX} ${CPPFLAGS} -c ROperator_Gemm.cxx
-
+$(filter %.o, $(SOFIEOBEJCT)): %.o: %.cxx
+	${CXX} ${CPPFLAGS} -c $<
 
 
 
 test: test.cpp
-	${CXX} -o test test.cpp onnx.pb.cc $(ROOTCONFIG) $(PROTOBUF) ${CPPFLAGS}
+	${CXX} ${CPPFLAGS} -Wall -g $(ROOTCONFIG) $(PROTOBUF) -o test test.cpp onnx.pb.cc
 
+.phony: clean
 clean:
-	rm -f *.o
+	rm *.o

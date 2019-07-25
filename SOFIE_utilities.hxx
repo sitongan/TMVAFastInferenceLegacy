@@ -1,22 +1,37 @@
-#include "SOFIE.hxx"
+#ifndef TMVA_SOFIE_UTILITY
+#define TMVA_SOFIE_UTILITY
 
+
+#include <vector>
+#include <string>
+#include <unordered_map>
+
+
+#include "SOFIE_common.hxx"
+
+#include "onnx.pb.h"
 
 namespace TMVA{
 namespace Experimental{
-namespace SOFIE{
-
-namespace INTERNAL{
-   factoryMethodMap mapOptypeOperator = {
-      {"Gemm", &make_ROperator_Gemm}
+namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluation
+/*
+   class RModel{
+   public:
+   private:
+      int64_t fIRVersion;
+      std::vector<std::tuple<std::string, int64_t>> fOpsetVersion;
+      int64_t fModelVersion;
+      std::map<std::string, std::string> fMetadata;
+         //expected keys: "producer_name", "producer_version", "domain", "doc_string", "model_author", "model_license"
+      //RGraph fGraph; //main graph to be executed for the model
    };
-
+*/
+namespace INTERNAL{
 
 void check_init_assert()
 {
    static_assert(8 * sizeof(float) == 32, "TMVA-SOFIE is not supported on machines with non-32 bit float");
 }
-
-
 
 std::string print_nodelist(const std::unordered_set<int_t>& vec, const onnx::GraphProto& graph)
 {
@@ -61,15 +76,10 @@ std::vector<int_t> topological_sort(const std::map<int_t, std::unordered_set<int
 
 
 
-
-}//INTERNAL
-
-
-
-
-
-
+}
 
 }//SOFIE
 }//Experimental
-}//TMNVA
+}//TMVA
+
+#endif //TMVA_SOFIE_UTILITY

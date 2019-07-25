@@ -3,8 +3,8 @@
 
 #include <vector>
 
-#include "SOFIE.hxx"
-#include "RGraph.hxx"
+#include "SOFIE_common.hxx"
+
 
 
 
@@ -12,16 +12,28 @@ namespace TMVA{
 namespace Experimental{
 namespace SOFIE{
 
-class RGraph;
-class ROperator;
-
 class ROperator{
 
 public:
-   virtual const std::vector<int_t> outputShape() = 0;
-   virtual void forward_fallback() = 0;
-
+   virtual const std::vector<std::vector<int_t>> shapeInference() = 0;
+   virtual void Forward_reference() = 0;
+   virtual ~ROperator(){}
 };
+
+class RGraph;
+
+namespace INTERNAL{
+extern ROperator* make_ROperator_Gemm(const onnx::NodeProto& nodeproto, RGraph& this_graph);
+extern ROperator* make_ROperator_Transpose(const onnx::NodeProto& nodeproto, RGraph& this_graph);
+extern ROperator* make_ROperator_Relu(const onnx::NodeProto& nodeproto, RGraph& this_graph);
+
+using factoryMethodMap = std::unordered_map<std::string, ROperator* (*)(const onnx::NodeProto&, RGraph&)>;
+const factoryMethodMap mapOptypeOperator = {
+      {"Gemm", &make_ROperator_Gemm},
+      {"Transpose", &make_ROperator_Transpose},
+      {"Relu", &make_ROperator_Relu}
+   };
+}
 
 
 }//SOFIE
