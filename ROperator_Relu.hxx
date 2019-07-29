@@ -4,6 +4,7 @@
 #include "SOFIE_common.hxx"
 #include "RDataNode.hxx"
 #include "RGraph.hxx"
+#include "ROperator.hxx"
 
 namespace TMVA{
 namespace Experimental{

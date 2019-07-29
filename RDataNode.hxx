@@ -70,11 +70,15 @@ private:
 
 public:
    ~RDataNode();
-   RDataNode<T>(const onnx::TensorProto& tensorproto);
-   RDataNode<T>(const std::vector<int_t>& shape, const std::string& name);
-   RDataNode<T>(const onnx::ValueInfoProto& valueinfoproto, const std::unordered_map<std::string, int_t>& dimensionDenotationMap);
-   RDataNode<T>(const std::vector<T>& input, const std::vector<int_t>& shape, const std::string& name);
-   void Update(std::vector<T>&& newDataVector, std::vector<int_t> newShape);
+   RDataNode(const onnx::TensorProto& tensorproto);
+   RDataNode(const std::vector<int_t>& shape, const std::string& name);
+   RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::unordered_map<std::string, int_t>& dimensionDenotationMap);
+   RDataNode(const std::vector<T>& input, const std::vector<int_t>& shape, const std::string& name);
+   RDataNode(std::vector<T>&& input, const std::vector<int_t>& shape, const std::string& name);
+
+   void Update(std::vector<T>&& newDataVector, const std::vector<int_t>& newShape);  //move update
+   void Update(const std::vector<T>& newDataVector, const std::vector<int_t>& newShape);  //copy update
+
    const T* GetData();
    T* GetWriteTarget();
    const std::vector<int_t>& GetShape() const {return fShape;}

@@ -77,11 +77,21 @@ RDataNode<T>::RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::u
    fHasData = true;
 }
 
-//copy constructor from a std vector
+//construct from a std vector, copy data
 template <typename T>
 RDataNode<T>::RDataNode(const std::vector<T>& input, const std::vector<int_t>& shape, const std::string& name) :fName(name){
    set_fType();
-   fShape.assign(shape.begin(), shape.end());
+   fShape = shape;
+   fLength = input.size();
+   fDataVector = new std::vector<T>(input);
+   fHasData = true;
+}
+
+//construct from a r-value std vector, move data
+template <typename T>
+RDataNode<T>::RDataNode(std::vector<T>&& input, const std::vector<int_t>& shape, const std::string& name) :fName(name){
+   set_fType();
+   fShape = shape;
    fLength = input.size();
    fDataVector = new std::vector<T>(input);
    fHasData = true;
@@ -91,7 +101,7 @@ RDataNode<T>::RDataNode(const std::vector<T>& input, const std::vector<int_t>& s
 template <typename T>
 RDataNode<T>::RDataNode(const std::vector<int_t>& shape, const std::string& name) :fName(name){
    set_fType();
-   fShape.assign(shape.begin(), shape.end());
+   fShape = shape;
    fLength = 1;
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
@@ -135,21 +145,37 @@ T* RDataNode<T>::GetWriteTarget(){
 
 
 template <typename T>
-void RDataNode<T>::Update(std::vector<T>&& newDataVector, std::vector<int_t> newShape){
+void RDataNode<T>::Update(std::vector<T>&& newDataVector, const std::vector<int_t>& newShape){
    if (fHasImmutableData){
       fHasImmutableData = false;
    }else if(fHasData){
       delete fDataVector;
    }
    fLength = 1;
-   fShape.assign(newShape.begin(), newShape.end());
+   fShape = newShape;
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
    }
    if (fLength != newDataVector.size()) throw std::runtime_error("TMVA::SOFIE - RDataNode Update Error, size inconsistency");
    fDataVector = new std::vector<T>(std::move(newDataVector));
    fHasData = true;
+}
 
+template <typename T>
+void RDataNode<T>::Update(const std::vector<T>& newDataVector,const std::vector<int_t>& newShape){
+   if (fHasImmutableData){
+      fHasImmutableData = false;
+   }else if(fHasData){
+      delete fDataVector;
+   }
+   fLength = 1;
+   fShape = newShape;
+   for (auto const& dim_size : fShape){
+      fLength *= dim_size;
+   }
+   if (fLength != newDataVector.size()) throw std::runtime_error("TMVA::SOFIE - RDataNode Update Error, size inconsistency");
+   fDataVector = new std::vector<T>(newDataVector);
+   fHasData = true;
 }
 
 template class RDataNode<float>;   //explicit template initialization

@@ -25,8 +25,6 @@ private:
 
    std::vector<ROperator*> fOperatorNode;
 
-   const onnx::GraphProto& fONNXGraph;
-
    ROperator* make_ROperator(const onnx::NodeProto& nodeproto){
       auto find = INTERNAL::mapOptypeOperator.find(nodeproto.op_type());
       if (find == INTERNAL::mapOptypeOperator.end()){
@@ -39,8 +37,8 @@ private:
 
 public:
 
-   RGraph(const onnx::GraphProto& onnxGraph, const std::unordered_map<std::string, int_t>& dimensionDenotationMap = {} ) :
-   fONNXGraph(onnxGraph), fDimensionDenotation(dimensionDenotationMap) {
+   RGraph(const onnx::GraphProto& fONNXGraph, const std::unordered_map<std::string, int_t>& dimensionDenotationMap = {} ) :
+   fDimensionDenotation(dimensionDenotationMap) {
 
       std::unordered_set<std::string> initializer_names;
       for (int i=0; i < fONNXGraph.initializer_size(); i++){
@@ -79,6 +77,8 @@ public:
 
    }
 
+   RGraph(){}  //external constructor
+
    ~RGraph(){
       for (auto const& x : fDataNodeMap){
          delete x.second;
@@ -108,7 +108,7 @@ public:
 
 
    void Forward(){
-      for (int i=0; i < fONNXGraph.node_size(); i++){
+      for (int i=0; i < fOperatorNode.size(); i++){
          fOperatorNode[i]->Forward_reference();
       }
    }

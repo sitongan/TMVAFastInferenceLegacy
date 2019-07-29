@@ -7,6 +7,7 @@
 #include "ROperator_Transpose.hxx"
 #include "RDataNode.hxx"
 #include "RGraph.hxx"
+#include "ROperator.hxx"
 
 namespace TMVA{
 namespace Experimental{
@@ -67,6 +68,36 @@ C(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(nodeproto.input(2))))
    }
    this_graph.RegisterNewRDataNode(nodeproto.output(0), Y);
 }
+
+template <typename T>
+ROperator_Gemm<T>::ROperator_Gemm(const std::string& name_A , const std::string& name_B, const std::string& name_C,
+   const std::string& name_Y, float attribute_alpha, float attribute_beta, int attribute_transA, int attribute_transB,
+   RGraph& this_graph):
+A(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(name_A))),
+B(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(name_B))),
+C(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(name_C))),
+Y(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(name_Y))),
+attr_alpha(attribute_alpha),
+attr_beta(attribute_beta),
+attr_transA(attribute_transA),
+attr_transB(attribute_transB)
+{
+   if ((attr_transA ? A->GetShape()[0] : A->GetShape()[1]) != (attr_transB ? B->GetShape()[1] : B->GetShape()[0])){
+       throw std::runtime_error("TMVA::SOFIE Error - Model Loading - input tensor A and B in Operator Gemm not compatible");
+    }
+   if ((attr_transA ? A->GetShape()[1] : A->GetShape()[0]) != Y->GetShape()[0]){
+       throw std::runtime_error("TMVA::SOFIE Error - Model Loading - input tensor A and Y in Operator Gemm not compatible");
+   }
+   if ((attr_transB ? B->GetShape()[0] : B->GetShape()[1]) != Y->GetShape()[1]){
+       throw std::runtime_error("TMVA::SOFIE Error - Model Loading - input tensor B and Y in Operator Gemm not compatible");
+   }
+   if ((Y->GetShape(0) != C->GetShape(0)) || (Y->GetShape(1) != C->GetShape(1))){
+      C->Unidirectional_broadcast(Y->GetShape());  //brodcast and update C
+   }
+}
+
+
+
 
 template <typename T>
 void ROperator_Gemm<T>::Forward_reference(){
