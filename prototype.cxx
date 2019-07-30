@@ -1,10 +1,10 @@
 #include <iostream>
-#include <fstream>
+
 #include <cstdio>
 
 
 
-#include "RGraph.hxx"
+#include "RModel.hxx"
 #include "SOFIE_utilities.hxx"
 
 using std::vector;
@@ -53,41 +53,37 @@ int test_3(){
 */
 
 int test(){
-   GOOGLE_PROTOBUF_VERIFY_VERSION;
-   //model I/O
-   onnx::ModelProto model;
-   std::fstream input("LinearNN.onnx", std::ios::in | std::ios::binary);
-//   std::fstream input("resnet18v1.onnx", std::ios::in | std::ios::binary);
-   if (!model.ParseFromIstream(&input)){
-      std::cerr << "Failed to parse onnx file." << endl;
-      return -1;
-   }
 
 
-   RGraph graph_test(model.graph());
+   RModel model("LinearNN.onnx");
+   RGraph* graph_test = model.GetMutableGraph();
 
 
    RDataNode<float>* testtmp;
 
-   RDataNode<float>* testinput= static_cast<RDataNode<float>*>(graph_test.GetRDataNode("input.1"));
+   RDataNode<float>* testinput= static_cast<RDataNode<float>*>(graph_test->GetRDataNode("input.1"));
    vector<float> test_input(6400, 1.0);
    testinput->Update(std::move(test_input), {64, 100});
    cout << "shape: " << to_string(testinput->GetShape()[0]) << "," << to_string(testinput->GetShape()[1]) << endl;
    cout << "length: " << to_string(testinput->GetLength()) << endl;
-   graph_test.Forward();
+   graph_test->Forward();
 
-   testtmp = static_cast<RDataNode<float>*>(graph_test.GetRDataNode("0.weight"));
-   cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
-   cout << "length: " << to_string(testtmp->GetLength()) << endl;
-   testtmp = static_cast<RDataNode<float>*>(graph_test.GetRDataNode("0.bias"));
+   testtmp = static_cast<RDataNode<float>*>(graph_test->GetRDataNode("0.weight"));
    cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
    cout << "length: " << to_string(testtmp->GetLength()) << endl;
 
-
-   testtmp = static_cast<RDataNode<float>*>(graph_test.GetRDataNode("7"));
+   testtmp = static_cast<RDataNode<float>*>(graph_test->GetRDataNode("0.bias"));
    cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
    cout << "length: " << to_string(testtmp->GetLength()) << endl;
+
+
+
+   testtmp = static_cast<RDataNode<float>*>(graph_test->GetRDataNode("7"));
+   cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
+   cout << "length: " << to_string(testtmp->GetLength()) << endl;
+
    vector<float> output (testtmp->GetData(), testtmp->GetData() + 10);
+
    print_vector(output);
    //std::vector<float> t_a(const_cast<float*>(testtmp->GetData()), const_cast<float*>(testtmp->GetData()) + testtmp->GetLength());
    //cout << "content :";
@@ -107,94 +103,19 @@ int test(){
    cout << endl;
    */
 
-   google::protobuf::ShutdownProtobufLibrary();
+
    exit(0);
 
+/*
    //model level metadata
-   cout << "fIRVersion: " << model.ir_version() << endl;
-   cout << "fModelVersion:" << model.model_version() << endl;
-   for (int i =0; i < model.opset_import_size(); i++){
-      cout << "Opset version: " << model.opset_import(0).version() << endl;
-   }
+
+
 
    //extra check that onnx is using int_64
    cout << "size of int in sys:" << 8 * sizeof(int) << endl;
    cout << "size of int used by onnx:" << 8 * sizeof(model.ir_version()) << endl;
 
 
-   //build computational graph representations
-   const onnx::GraphProto& graph = model.graph();
-   cout << "graph name: " << graph.name() << endl;
-   std::map<string, int_t> datanode_match;
-   //size_t will be the index of the other node (send/receive) of the datanode edge
-   std::map<int_t, std::unordered_set<int_t>> EdgesForward;
-   std::map<int_t, std::unordered_set<int_t>> EdgesBackward;
-
-   std::unordered_set<string> initializer_names;
-   for (int i=0; i < graph.initializer_size(); i++){
-      initializer_names.insert(graph.initializer(i).name());
-   }
-
-   cout << "graph input names: [";
-   for (int i=0; i < graph.input_size(); i++){
-      if (initializer_names.find(graph.input(i).name()) == initializer_names.end()){
-         //input datanode is not a weight node (has no initializer)
-         datanode_match[graph.input(i).name()] = -1;
-         cout << graph.input(i).name() << ",";
-      }
-   }
-   cout << "]" << endl;
-
-   cout << "graph output names: [";
-   for (int i=0; i < graph.output_size(); i++){
-      datanode_match[graph.output(i).name()] = -1;
-      cout << graph.output(i).name() << ",";
-   }
-   cout << "]" << endl;
-
-
-   cout << "check - datanode_match after initialization: [";
-   for (auto const& item: datanode_match){
-      cout << " " << item.first << ":" << item.second << ",";
-   }
-   cout << "]" << endl;
-
-   for (int i=0; i< graph.node_size(); i++){
-      for (int j=0; j < graph.node(i).input_size(); j++){
-         const string& input_name {graph.node(i).input(j)};
-         if (initializer_names.find(input_name) == initializer_names.end()){
-         //if this input to this node is not an initializer
-
-            if(datanode_match.find(input_name) != datanode_match.end()){
-               EdgesForward[datanode_match[input_name]].insert(i);
-               EdgesBackward[i].insert(datanode_match[input_name]);
-            }else{
-               datanode_match[input_name] = i;
-            }
-         }
-      }
-      for (int j=0; j < graph.node(i).output_size(); j++){
-         string output_name {graph.node(i).output(j)};
-         if(datanode_match.find(output_name) != datanode_match.end()){
-            EdgesBackward[datanode_match[output_name]].insert(i);
-            EdgesForward[i].insert(datanode_match[output_name]);
-         }else{
-            datanode_match[output_name] = i;
-         }
-      }
-   }
-
-   cout << "EdgesForward: " << endl;
-   for (auto const& item : EdgesForward){
-      cout << item.first << ":" << INTERNAL::print_nodelist(item.second, graph) << endl;
-   }
-   cout << endl;
-
-   cout << "EdgesBackward: " << endl;
-   for (auto const& item : EdgesBackward){
-      cout << item.first << ":" << INTERNAL::print_nodelist(item.second, graph) << endl;
-   }
-   cout << endl;
 
    // NOT ACTUALLY NEEDED to do topological sort, the nodes in their order are already topologically sorted
    vector<int64_t> eval_order = INTERNAL::topological_sort(EdgesForward, EdgesBackward);
@@ -202,6 +123,7 @@ int test(){
       cout << "Error: Computational graph not a DAG!" << endl;
       return 1;
    }
+   */
 /*
 
    //test RDataNode constructor for TensorProto
@@ -219,7 +141,7 @@ int test(){
    auto ptr_data_2 = static_cast<float64_t*>(testnode_2.GetData());
    cout << ptr_data_2[4999] << endl;
 */
-
+/*
    RDataNode<float> testnode (graph.initializer(0)); //this line will be jitted
    auto ptr_data = testnode.GetData();
    cout.precision(17);
@@ -269,7 +191,7 @@ int test(){
       cout << endl;
    }
 
-
+*/
 
 
 

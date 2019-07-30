@@ -5,6 +5,7 @@
 
 #include "SOFIE_common.hxx"
 
+#include "onnx.pb.h"
 
 
 

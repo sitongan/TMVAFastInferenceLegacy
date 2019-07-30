@@ -39,7 +39,7 @@ X(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(nodeproto.input(0))))
 
 template <typename T>
 void ROperator_Relu<T>::Forward_reference(){
-   OPERATION::Relu_reference(X->GetData(), Y->GetWriteTarget(), Y->GetLength());
+   OPERATION::Relu_reference(X->GetData(), Y->GetMutable(), Y->GetLength());
 }
 
 

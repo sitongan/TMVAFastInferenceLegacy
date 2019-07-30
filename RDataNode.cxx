@@ -10,36 +10,35 @@ namespace SOFIE{
 //constructor for immutable tensorproto (weights)
 //construct a wrapper around the underlying data
 template <typename T>
-RDataNode<T>::RDataNode(const onnx::TensorProto& tensorproto)
+RDataNode<T>::RDataNode(onnx::TensorProto* tensorproto)
 {
    set_fType();
-   if (tensorproto.has_name()){
-      fName = tensorproto.name();
+   if (tensorproto->has_name()){
+      fName = tensorproto->name();
    }
    fLength = 1;
-   for (int i = 0; i < tensorproto.dims_size(); i++){
-      fShape.push_back(tensorproto.dims(i));
-      fLength *= tensorproto.dims(i);
+   for (int i = 0; i < tensorproto->dims_size(); i++){
+      fShape.push_back(tensorproto->dims(i));
+      fLength *= tensorproto->dims(i);
    }
 
-   if (tensorproto.has_data_location() && tensorproto.data_location() == onnx::TensorProto::EXTERNAL ){
+   if (tensorproto->has_data_location() && tensorproto->data_location() == onnx::TensorProto::EXTERNAL ){
       throw std::runtime_error("Tensors with externally stored weights have not been supported yet.");
    }
 
-   if (tensorproto.has_raw_data()){
-      //const float* raw_data = reinterpret_cast<const float*>(tensorproto.raw_data().c_str());
-      //fDataVector = new std::vector<float>(raw_data, raw_data+fLength);
-      //fHasData = true;
-      fImmutableData = reinterpret_cast<const T*>(tensorproto.raw_data().c_str());
-      fHasImmutableData = true;
+
+   if (tensorproto->has_raw_data()){
+
+      auto raw_data_ptr = const_cast<T*>(reinterpret_cast<const T*>(tensorproto->release_raw_data()->c_str()));
+      fDataVector = new std::vector<T>(raw_data_ptr, raw_data_ptr + fLength);
    }else{
-      fImmutableData = get_protobuf_datafield(tensorproto);
-      fHasImmutableData = true;
+
+      extract_protobuf_datafield(tensorproto);
    }
 
-   fIsSegment = tensorproto.has_segment();
+   fIsSegment = tensorproto->has_segment();
    if (fIsSegment){
-      fSegmentIndex = std::make_tuple(tensorproto.segment().begin(),tensorproto.segment().end());
+      fSegmentIndex = std::make_tuple(tensorproto->segment().begin(),tensorproto->segment().end());
       throw std::runtime_error("Tensors with segments have not been supported yet.");
    }
 }
@@ -74,7 +73,6 @@ RDataNode<T>::RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::u
    }
    fDataVector = new std::vector<T>();
    fDataVector->resize(fLength);
-   fHasData = true;
 }
 
 //construct from a std vector, copy data
@@ -84,7 +82,6 @@ RDataNode<T>::RDataNode(const std::vector<T>& input, const std::vector<int_t>& s
    fShape = shape;
    fLength = input.size();
    fDataVector = new std::vector<T>(input);
-   fHasData = true;
 }
 
 //construct from a r-value std vector, move data
@@ -94,7 +91,6 @@ RDataNode<T>::RDataNode(std::vector<T>&& input, const std::vector<int_t>& shape,
    fShape = shape;
    fLength = input.size();
    fDataVector = new std::vector<T>(input);
-   fHasData = true;
 }
 
 //constructor by shape and type
@@ -108,7 +104,6 @@ RDataNode<T>::RDataNode(const std::vector<int_t>& shape, const std::string& name
    }
    fDataVector = new std::vector<T>();
    fDataVector->resize(fLength);
-   fHasData = true;
 }
 
 
@@ -116,66 +111,40 @@ RDataNode<T>::RDataNode(const std::vector<int_t>& shape, const std::string& name
 
 template <typename T>
 RDataNode<T>::~RDataNode(){
-   if (fHasData){
-      delete fDataVector;
-   }
+   delete fDataVector;
 }
 
 template <typename T>
 const T* RDataNode<T>::GetData(){
-   if (fHasImmutableData){
-      return fImmutableData;
-   }else if (fHasData){
-      return fDataVector->data();
-   }else{
-      throw std::runtime_error("Tensor " + fName + " has no data.");
-   }
+   return fDataVector->data();
 }
 
 template <typename T>
-T* RDataNode<T>::GetWriteTarget(){
-   if (fHasImmutableData){
-      throw std::runtime_error("Tensor " + fName + " is not mutable.");
-   }else if (fHasData){
-      return fDataVector->data();
-   }else{
-      throw std::runtime_error("Tensor " + fName + " has no data.");
-   }
+T* RDataNode<T>::GetMutable(){
+   return fDataVector->data();
 }
 
 
 template <typename T>
 void RDataNode<T>::Update(std::vector<T>&& newDataVector, const std::vector<int_t>& newShape){
-   if (fHasImmutableData){
-      fHasImmutableData = false;
-   }else if(fHasData){
-      delete fDataVector;
-   }
    fLength = 1;
-   fShape = newShape;
+   fShape = newShape;   //copy assignment
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
    }
    if (fLength != newDataVector.size()) throw std::runtime_error("TMVA::SOFIE - RDataNode Update Error, size inconsistency");
-   fDataVector = new std::vector<T>(std::move(newDataVector));
-   fHasData = true;
+   *fDataVector = newDataVector;  //this will be move assignment
 }
 
 template <typename T>
 void RDataNode<T>::Update(const std::vector<T>& newDataVector,const std::vector<int_t>& newShape){
-   if (fHasImmutableData){
-      fHasImmutableData = false;
-   }else if(fHasData){
-      delete fDataVector;
-   }
    fLength = 1;
    fShape = newShape;
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
    }
    if (fLength != newDataVector.size()) throw std::runtime_error("TMVA::SOFIE - RDataNode Update Error, size inconsistency");
-   fDataVector = new std::vector<T>(newDataVector);
-   fHasData = true;
+   *fDataVector = newDataVector;  //this will be copy assignment
 }
 
 template class RDataNode<float>;   //explicit template initialization

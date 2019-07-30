@@ -9,23 +9,11 @@
 
 #include "SOFIE_common.hxx"
 
-#include "onnx.pb.h"
-
 namespace TMVA{
 namespace Experimental{
 namespace SOFIE{   //Project code. System for Open, Fast Inference and Evaluation
-/*
-   class RModel{
-   public:
-   private:
-      int64_t fIRVersion;
-      std::vector<std::tuple<std::string, int64_t>> fOpsetVersion;
-      int64_t fModelVersion;
-      std::map<std::string, std::string> fMetadata;
-         //expected keys: "producer_name", "producer_version", "domain", "doc_string", "model_author", "model_license"
-      //RGraph fGraph; //main graph to be executed for the model
-   };
-*/
+
+
 namespace INTERNAL{
 
 void check_init_assert()

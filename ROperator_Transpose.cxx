@@ -58,7 +58,7 @@ data(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(nodeproto.input(0))))
 
 template <typename T>
 void ROperator_Transpose<T>::Forward_reference(){
-   OPERATION::Transpose_reference(data->GetData(), data->GetShape(), transposed->GetWriteTarget(), transposed->GetShape(), attr_perm);
+   OPERATION::Transpose_reference(data->GetData(), data->GetShape(), transposed->GetMutable(), transposed->GetShape(), attr_perm);
 }
 
 template class ROperator_Transpose<float>;

@@ -6,6 +6,8 @@
 #include "RGraph.hxx"
 #include "ROperator.hxx"
 
+#include "onnx.pb.h"
+
 namespace TMVA{
 namespace Experimental{
 namespace SOFIE{

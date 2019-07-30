@@ -5,6 +5,7 @@
 #include "RDataNode.hxx"
 #include "ROperator.hxx"
 
+#include "onnx.pb.h"
 
 namespace TMVA{
 namespace Experimental{
@@ -37,30 +38,30 @@ private:
 
 public:
 
-   RGraph(const onnx::GraphProto& fONNXGraph, const std::unordered_map<std::string, int_t>& dimensionDenotationMap = {} ) :
+   RGraph(onnx::GraphProto* fONNXGraph, const std::unordered_map<std::string, int_t>& dimensionDenotationMap = {} ) :
    fDimensionDenotation(dimensionDenotationMap) {
 
       std::unordered_set<std::string> initializer_names;
-      for (int i=0; i < fONNXGraph.initializer_size(); i++){
-         initializer_names.insert(fONNXGraph.initializer(i).name());
-         switch(static_cast<ETensorType>(fONNXGraph.initializer(i).data_type())){
+      for (int i=0; i < fONNXGraph->initializer_size(); i++){
+         initializer_names.insert(fONNXGraph->initializer(i).name());
+         switch(static_cast<ETensorType>(fONNXGraph->initializer(i).data_type())){
             case ETensorType::FLOAT : {
-               fDataNodeMap[fONNXGraph.initializer(i).name()] = new RDataNode<float>(fONNXGraph.initializer(i));
+               fDataNodeMap[fONNXGraph->initializer(i).name()] = new RDataNode<float>(fONNXGraph->mutable_initializer(i));
                break;
             }
-            default: throw std::runtime_error("Data type in weight tensor " + fONNXGraph.initializer(i).name() + " not supported!\n");
+            default: throw std::runtime_error("Data type in weight tensor " + fONNXGraph->initializer(i).name() + " not supported!\n");
          }
       }
 
-      for (int i=0; i < fONNXGraph.input_size(); i++){
-         if (initializer_names.find(fONNXGraph.input(i).name()) == initializer_names.end()){
+      for (int i=0; i < fONNXGraph->input_size(); i++){
+         if (initializer_names.find(fONNXGraph->input(i).name()) == initializer_names.end()){
             //input datanode is not a weight node (has no initializer)
-            std::string input_name = fONNXGraph.input(i).name();
+            std::string input_name = fONNXGraph->input(i).name();
             fInputDataNodeNames.insert(input_name);
 
-            switch(static_cast<ETensorType>(fONNXGraph.input(i).type().tensor_type().elem_type())){
+            switch(static_cast<ETensorType>(fONNXGraph->input(i).type().tensor_type().elem_type())){
                case ETensorType::FLOAT : {
-                  fDataNodeMap[input_name] = new RDataNode<float>(fONNXGraph.input(i), fDimensionDenotation);
+                  fDataNodeMap[input_name] = new RDataNode<float>(fONNXGraph->input(i), fDimensionDenotation);
                   break;
                }
                default: throw std::runtime_error("Data type in input tensor " + input_name + " not supported!\n");
@@ -69,10 +70,10 @@ public:
          }
       }
 
-      //ROperator* test = make_ROperator(fONNXGraph.node(0));
+      //ROperator* test = make_ROperator(fONNXGraph->node(0));
 
-      for (int i=0; i < fONNXGraph.node_size(); i++){
-         fOperatorNode.push_back(make_ROperator(fONNXGraph.node(i)));
+      for (int i=0; i < fONNXGraph->node_size(); i++){
+         fOperatorNode.push_back(make_ROperator(fONNXGraph->node(i)));
       }
 
    }

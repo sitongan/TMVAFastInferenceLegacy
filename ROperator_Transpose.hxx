@@ -6,6 +6,8 @@
 #include "RGraph.hxx"
 #include "ROperator.hxx"
 
+#include "onnx.pb.h"
+
 #include <vector>
 
 namespace TMVA{
