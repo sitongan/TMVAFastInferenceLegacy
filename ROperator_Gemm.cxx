@@ -30,8 +30,8 @@ template <typename T>
 const std::vector<std::vector<int_t>> ROperator_Gemm<T>::shapeInference() {
    //calculate output tensor shape
    std::vector<int_t> y_shape;
-   y_shape.push_back(attr_transA ? A->GetShape()[1] : A->GetShape()[0]);
-   y_shape.push_back(attr_transB ? B->GetShape()[0] : B->GetShape()[1]);
+   y_shape.push_back(A->GetShape()[0]);
+   y_shape.push_back(B->GetShape()[1]);
    std::vector<std::vector<int_t>> ret;
    ret.push_back(std::move(y_shape));
    return ret;
@@ -59,14 +59,32 @@ C(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(nodeproto.input(2))))
          std::cout << "TMVA::SOFIE Warning - Model Loading - Attribute " << attribute_name << " in OperatorNode " << nodeproto.name() << " is not defined in ONNX IR and not applied!\n";
       }
    }
-   if ((attr_transA ? A->GetShape()[0] : A->GetShape()[1]) != (attr_transB ? B->GetShape()[1] : B->GetShape()[0])){
+
+   if (attr_transA == 1){
+      std::vector<T> transposed;
+      transposed.resize(A->GetLength());
+      auto old_shape = A->GetShape();
+      OPERATION::Transpose_reference(A->GetData(), old_shape, transposed.data(), {old_shape[1], old_shape[0]}, {1,0});
+      A->Update(std::move(transposed), {old_shape[1], old_shape[0]});
+      attr_transA = 0;
+   }
+   if (attr_transB == 1){
+      std::vector<T> transposed;
+      transposed.resize(B->GetLength());
+      auto old_shape = B->GetShape();
+      OPERATION::Transpose_reference(B->GetData(), old_shape, transposed.data(), {old_shape[1], old_shape[0]}, {1,0});
+      B->Update(std::move(transposed), {old_shape[1], old_shape[0]});
+      attr_transB = 0;
+   }
+
+   if ((A->GetShape()[1]) != (B->GetShape()[0])){
        throw std::runtime_error("TMVA::SOFIE Error - Model Loading - input tensor A and B in Operator Gemm not compatible");
     }
    Y = new RDataNode<T>(shapeInference()[0], nodeproto.output(0));
    if ((Y->GetShape(0) != C->GetShape(0)) || (Y->GetShape(1) != C->GetShape(1))){
       C->Unidirectional_broadcast(Y->GetShape());  //brodcast and update C
    }
-   this_graph.RegisterNewRDataNode(nodeproto.output(0), Y);
+   this_graph.RegisterNewRDataNode(Y);
 }
 
 template <typename T>
@@ -91,16 +109,7 @@ attr_transB(attribute_transB)
    if ((attr_transB ? B->GetShape()[0] : B->GetShape()[1]) != Y->GetShape()[1]){
        throw std::runtime_error("TMVA::SOFIE Error - Model Loading - input tensor B and Y in Operator Gemm not compatible");
    }
-   if ((Y->GetShape(0) != C->GetShape(0)) || (Y->GetShape(1) != C->GetShape(1))){
-      C->Unidirectional_broadcast(Y->GetShape());  //brodcast and update C
-   }
-}
 
-
-
-
-template <typename T>
-void ROperator_Gemm<T>::Forward_reference(){
    if (attr_transA == 1){
       std::vector<T> transposed;
       transposed.resize(A->GetLength());
@@ -117,8 +126,44 @@ void ROperator_Gemm<T>::Forward_reference(){
       B->Update(std::move(transposed), {old_shape[1], old_shape[0]});
       attr_transB = 0;
    }
-   OPERATION::Gemm_reference(A->GetData(), B->GetData(), C->GetData(), Y->GetMutable(), A->GetShape(0), A->GetShape(1), B->GetShape(1), attr_alpha, attr_beta);
+
+   if ((Y->GetShape(0) != C->GetShape(0)) || (Y->GetShape(1) != C->GetShape(1))){
+      C->Unidirectional_broadcast(Y->GetShape());  //brodcast and update C
+   }
 }
+
+
+
+
+template <typename T>
+void ROperator_Gemm<T>::Forward_reference(){
+
+   OPERATION::Gemm_reference(A->GetData(), B->GetData(), C->GetData(), Y->GetMutable(), A->GetShape(0), B->GetShape(1), A->GetShape(1),  attr_alpha, attr_beta);
+}
+
+
+template <typename T>
+void ROperator_Gemm<T>::Forward_blas(){
+   //Using B_T * A_T = (A * B)_T trick to call column major blas function on row major datanode
+
+
+   char transA = 'N';
+   char transB = 'N';
+   //transA = attr_transA ? 'T' : 'N';
+   //transB = attr_transB ? 'T' : 'N';
+   int m = A->GetShape(0);
+   int n = B->GetShape(1);
+   int k = B->GetShape(0);
+   int lda = attr_transA ? m : k;
+   int ldb = attr_transB ? k : n;
+
+   (*Y) = (*C); //copy assignment
+
+   BLAS::sgemm_(&transB, &transA, &n, &m, &k, &attr_alpha, B->GetData(), &ldb, A->GetData(),  &lda, &attr_beta, Y->GetMutable(), &n);
+
+}
+
+
 
 template class ROperator_Gemm<float>;
 

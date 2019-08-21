@@ -15,9 +15,6 @@ namespace SOFIE{
 
 class RGraph{
 private:
-   //std::string fName;
-   //std::map<int_t, std::vector<int_t>> fEdgesForward;
-   //std::map<int_t, std::vector<int_t>> fEdgesBackward;
 
    std::unordered_map<std::string, int_t> fDimensionDenotation;
    std::unordered_map<std::string, RDataNodeBase*> fDataNodeMap;
@@ -99,19 +96,23 @@ public:
       }
    }
 
-   void RegisterNewRDataNode(std::string name, RDataNodeBase* datanode){
-      if (fDataNodeMap.find(name) == fDataNodeMap.end()){
-         fDataNodeMap[name] = datanode;
+   void RegisterNewRDataNode(RDataNodeBase* datanode){
+      std::string nodename = datanode->GetName();
+      if (fDataNodeMap.find(nodename) == fDataNodeMap.end()){
+         fDataNodeMap[nodename] = datanode;
       }else{
-         throw std::runtime_error("Datanode with name " + name + " already exist\n");
+         throw std::runtime_error("Datanode with name " + nodename + " already exist\n");
       }
    }
 
 
    void Forward(){
+
       for (int i=0; i < fOperatorNode.size(); i++){
-         fOperatorNode[i]->Forward_reference();
+         //fOperatorNode[i]->Forward_reference();
+         fOperatorNode[i]->Forward_blas();
       }
+
    }
 
 };

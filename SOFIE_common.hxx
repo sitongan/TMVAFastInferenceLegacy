@@ -35,4 +35,4 @@ namespace SOFIE{
 }//TMVA
 
 
-#endif //TMVA_SOFIE
+#endif //TMVA_SOFIE_COMMON

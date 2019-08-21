@@ -52,13 +52,37 @@ data(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(nodeproto.input(0))))
 
 
    transposed = new RDataNode<T>(shapeInference()[0], nodeproto.output(0));
-   this_graph.RegisterNewRDataNode(nodeproto.output(0), transposed);
+   this_graph.RegisterNewRDataNode(transposed);
+}
+
+template <typename T>
+ROperator_Transpose<T>::ROperator_Transpose(const std::string& name_data, const std::string& name_transposed, const std::vector<int_t>& attribute_perm, RGraph& this_graph):
+data(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(name_data))),
+transposed(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(name_transposed))),
+attr_perm(attribute_perm)
+{
+   int input_dim = data->GetShape().size();
+   if (attr_perm.size() != 0){
+      if (attr_perm.size() != input_dim) throw std::runtime_error("TMVA::SOFIE Error - Model Loading - Transpose Operator has a perm attribute incompatible with input");
+      for (auto perm_value : attr_perm){
+         if (perm_value >= input_dim || perm_value < 0) throw std::runtime_error("TMVA::SOFIE Error - Model Loading - Transpose Operator has a perm attribute incompatible with input");
+      }
+   }else{
+      for (int i = input_dim - 1; i >= 0; i--){
+         attr_perm.push_back(i);
+      }
+   }
 }
 
 
 template <typename T>
 void ROperator_Transpose<T>::Forward_reference(){
    OPERATION::Transpose_reference(data->GetData(), data->GetShape(), transposed->GetMutable(), transposed->GetShape(), attr_perm);
+}
+
+template <typename T>
+void ROperator_Transpose<T>::Forward_blas(){
+   this->Forward_reference(); //tmp
 }
 
 template class ROperator_Transpose<float>;

@@ -29,8 +29,8 @@ RDataNode<T>::RDataNode(onnx::TensorProto* tensorproto)
 
    if (tensorproto->has_raw_data()){
 
-      auto raw_data_ptr = const_cast<T*>(reinterpret_cast<const T*>(tensorproto->release_raw_data()->c_str()));
-      fDataVector = new std::vector<T>(raw_data_ptr, raw_data_ptr + fLength);
+      auto raw_data_ptr = const_cast<T*>(reinterpret_cast<const T*>(tensorproto->mutable_raw_data()->c_str()));   //tensorproto retains ownership
+      fDataVector = new std::vector<T>(raw_data_ptr, raw_data_ptr + fLength); //copy here
    }else{
 
       extract_protobuf_datafield(tensorproto);
@@ -54,6 +54,7 @@ RDataNode<T>::RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::u
       fName = "";
    }
    fLength = 1;
+   if (!valueinfoproto.type().tensor_type().has_shape()) throw std::runtime_error("TMVA::SOFIE datanode with no shape restrictions is not supported yet");
    for (int i = 0; i < valueinfoproto.type().tensor_type().shape().dim_size(); i++){
       int_t dim;
       if (valueinfoproto.type().tensor_type().shape().dim(i).has_dim_value()){
@@ -71,6 +72,8 @@ RDataNode<T>::RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::u
       fShape.push_back(dim);
       fLength *= dim;
    }
+   if (valueinfoproto.type().tensor_type().shape().dim_size() == 0) fShape = {1};   //in case this TensorShapeProto has no dimension message: ONNX IR defines this to be a scalar
+
    fDataVector = new std::vector<T>();
    fDataVector->resize(fLength);
 }
@@ -115,7 +118,7 @@ RDataNode<T>::~RDataNode(){
 }
 
 template <typename T>
-const T* RDataNode<T>::GetData(){
+const T* RDataNode<T>::GetData() const{
    return fDataVector->data();
 }
 
@@ -147,8 +150,20 @@ void RDataNode<T>::Update(const std::vector<T>& newDataVector,const std::vector<
    *fDataVector = newDataVector;  //this will be copy assignment
 }
 
-template class RDataNode<float>;   //explicit template initialization
+template <typename T>
+RDataNode<T>& RDataNode<T>::operator=(const RDataNode<T>& other){
+   delete fDataVector;
+   fDataVector = new std::vector<T>(other.GetData(), other.GetData() + other.GetLength());   //copy
+   fShape = other.GetShape(); //copy
+   fLength = 1;
+   for (auto const& dim_size : fShape){
+      fLength *= dim_size;
+   }
+   return *this;
+}
 
+
+template class RDataNode<float>;   //explicit template initialization
 
 
 

@@ -55,7 +55,9 @@ public:
 
    const std::vector<std::vector<int_t>> shapeInference() final;
    ROperator_Transpose<T>(const onnx::NodeProto& nodeproto, RGraph& this_graph);
+   ROperator_Transpose<T>(const std::string& name_data, const std::string& name_transposed, const std::vector<int_t>& attribute_perm, RGraph& this_graph);
    void Forward_reference() final;
+   void Forward_blas() final;
 
 };
 

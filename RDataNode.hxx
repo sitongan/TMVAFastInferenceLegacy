@@ -21,7 +21,17 @@ class RDataNodeBase{
 public:
    virtual const ETensorType& GetType() const =0;
    virtual ~RDataNodeBase(){}
-
+   virtual const std::string& GetName() const=0;
+   virtual const std::vector<int_t>& GetShape() const=0;
+   bool HasSameShape(const RDataNodeBase& another){
+      auto this_shape = this->GetShape();
+      auto another_shape = another.GetShape();
+      if (this_shape.size() != another_shape.size()) return false;
+      for (int dim = 0; dim < this_shape.size(); dim++){
+         if (this_shape[dim] != another_shape[dim]) return false;
+      }
+      return true;
+   }
 };
 
 namespace UTILITY{
@@ -47,15 +57,12 @@ private:
    std::tuple<int_t, int_t> fSegmentIndex;
 
 
-
-
-
-
    template<class Q = T>
    typename std::enable_if<std::is_same<Q, float>::value, void>::type extract_protobuf_datafield(onnx::TensorProto* tensorproto)
    {
       fDataVector = new std::vector<T>(tensorproto->float_data_size());
       tensorproto->mutable_float_data()->ExtractSubrange(0, tensorproto->float_data_size(), fDataVector->data());
+      //this is a copy
    }
 
    template<class Q = T>
@@ -63,6 +70,10 @@ private:
    {
        fType = ETensorType::FLOAT;
    }
+
+
+
+
 
    RDataNode<T>(){};
 
@@ -76,8 +87,10 @@ public:
 
    void Update(std::vector<T>&& newDataVector, const std::vector<int_t>& newShape);  //move update
    void Update(const std::vector<T>& newDataVector, const std::vector<int_t>& newShape);  //copy update
+   RDataNode<T>& operator=(const RDataNode<T>& other);   //copy assignment
+   void SetName(const std::string& newName) {fName = newName;}
 
-   const T* GetData();
+   const T* GetData() const;
    T* GetMutable();
    const std::vector<int_t>& GetShape() const {return fShape;}
    int_t GetShape(int_t dim) const{

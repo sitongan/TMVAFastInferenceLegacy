@@ -34,12 +34,25 @@ ROperator_Relu<T>::ROperator_Relu(const onnx::NodeProto& nodeproto, RGraph& this
 X(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(nodeproto.input(0))))
 {
    Y = new RDataNode<T>(shapeInference()[0], nodeproto.output(0));
-   this_graph.RegisterNewRDataNode(nodeproto.output(0), Y);
+   this_graph.RegisterNewRDataNode(Y);
+}
+
+template <typename T>
+ROperator_Relu<T>::ROperator_Relu(const std::string& name_X, const std::string& name_Y, RGraph& this_graph):
+X(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(name_X))),
+Y(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(name_Y)))
+{
+   if (!X->HasSameShape(*Y)) throw std::runtime_error("TMVA::SOFIE Operator Relu has inputs of different shape");
 }
 
 template <typename T>
 void ROperator_Relu<T>::Forward_reference(){
    OPERATION::Relu_reference(X->GetData(), Y->GetMutable(), Y->GetLength());
+}
+
+template <typename T>
+void ROperator_Relu<T>::Forward_blas(){
+   this->Forward_reference();
 }
 
 

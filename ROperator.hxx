@@ -18,6 +18,7 @@ class ROperator{
 public:
    virtual const std::vector<std::vector<int_t>> shapeInference() = 0;
    virtual void Forward_reference() = 0;
+   virtual void Forward_blas() = 0;
    virtual ~ROperator(){}
 };
 
