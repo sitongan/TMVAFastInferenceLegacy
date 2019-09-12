@@ -8,6 +8,7 @@
 
 #include "SOFIE_common.hxx"
 
+
 #include "onnx.pb.h"
 
 namespace TMVA{
@@ -16,13 +17,29 @@ namespace SOFIE{
 
 
 class RDataNodeBase{
-/*   protected:
-   RDataNodeBase(){}*/
+protected:
+   ETensorType fType;
+   std::string fName = "";
+   std::vector<std::size_t> fShape;
+   int_t fLength;
+   bool fIsSegment = false;
+   std::tuple<int_t, int_t> fSegmentIndex;
+
 public:
-   virtual const ETensorType& GetType() const =0;
+
+   const ETensorType& GetType() const{return fType;}
    virtual ~RDataNodeBase(){}
-   virtual const std::string& GetName() const=0;
-   virtual const std::vector<int_t>& GetShape() const=0;
+   RDataNodeBase(std::string name): fName(name){}
+   RDataNodeBase(){}
+   const std::string& GetName() const{return fName;}
+   void SetName(const std::string& newName) {fName = newName;}
+   const std::vector<std::size_t>& GetShape() const {return fShape;}
+   int_t GetShape(int_t dim) const{
+      //if (dim >= fShape.size() || dim < 0) throw std::runtime_error("TMVA::SOFIE - dimension requested does not exist");
+      return fShape[dim];
+   }
+   const int_t GetLength() const {return fLength;}
+
    bool HasSameShape(const RDataNodeBase& another){
       auto this_shape = this->GetShape();
       auto another_shape = another.GetShape();
@@ -32,76 +49,71 @@ public:
       }
       return true;
    }
+
+
 };
 
 namespace UTILITY{
 template<typename T>
-std::vector<T> Unidirectional_broadcast(const T* original_data, const std::vector<int_t>& original_shape, const std::vector<int_t>& target_shape, std::string original_name = "");
-std::vector<int_t> Position_to_indices(int_t position, const std::vector<int_t>& shape);
-int_t Indices_to_position(const std::vector<int_t>& indices, const std::vector<int_t>& shape);
+std::vector<T> Unidirectional_broadcast(const T* original_data, const std::vector<size_t>& original_shape, const std::vector<size_t>& target_shape, std::string original_name = "");
+std::vector<int_t> Position_to_indices(int_t position, const std::vector<size_t>& shape);
+int_t Indices_to_position(const std::vector<int_t>& indices, const std::vector<size_t>& shape);
 }//UTILITY
 
 
 
 
-template <typename T>
+template <typename T>   //expecting T to be of same interface as RTensor
 class RDataNode : public RDataNodeBase{
 
 private:
-   ETensorType fType;
-   std::string fName = "";
-   std::vector<int_t> fShape;
-   int_t fLength;
-   std::vector<T>* fDataVector;
-   bool fIsSegment = false;
-   std::tuple<int_t, int_t> fSegmentIndex;
 
 
-   template<class Q = T>
-   typename std::enable_if<std::is_same<Q, float>::value, void>::type extract_protobuf_datafield(onnx::TensorProto* tensorproto)
+   //std::vector<T>* fDataVector;
+   T* fDataTensor;
+
+
+   typename std::enable_if<std::is_same<typename T::Value_t, float>::value, void>::type extract_protobuf_datafield(onnx::TensorProto* tensorproto)
    {
-      fDataVector = new std::vector<T>(tensorproto->float_data_size());
-      tensorproto->mutable_float_data()->ExtractSubrange(0, tensorproto->float_data_size(), fDataVector->data());
+      //fDataVector = new std::vector<T>(tensorproto->float_data_size());
+      tensorproto->mutable_float_data()->ExtractSubrange(0, tensorproto->float_data_size(), fDataTensor->GetData());
       //this is a copy
    }
 
-   template<class Q = T>
-   typename std::enable_if<std::is_same<Q, float>::value, void>::type set_fType()
+   typename std::enable_if<std::is_same<typename T::Value_t, float>::value, void>::type set_fType()
    {
        fType = ETensorType::FLOAT;
    }
 
 
-
-
-
-   RDataNode<T>(){};
+   //RDataNode<T>(){};
 
 public:
+
+   using Value_t = typename T::Value_t;
+   using Container_t = typename T::Container_t;
+
    ~RDataNode();
    RDataNode(onnx::TensorProto* tensorproto);
-   RDataNode(const std::vector<int_t>& shape, const std::string& name);
+   RDataNode(const std::vector<std::size_t>& shape, const std::string& name);
    RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::unordered_map<std::string, int_t>& dimensionDenotationMap);
-   RDataNode(const std::vector<T>& input, const std::vector<int_t>& shape, const std::string& name);
-   RDataNode(std::vector<T>&& input, const std::vector<int_t>& shape, const std::string& name);
+   RDataNode(const std::vector<T>& input, const std::vector<size_t>& shape, const std::string& name);
+   RDataNode(Container_t&& input, const std::vector<size_t>& shape, const std::string& name);
 
-   void Update(std::vector<T>&& newDataVector, const std::vector<int_t>& newShape);  //move update
-   void Update(const std::vector<T>& newDataVector, const std::vector<int_t>& newShape);  //copy update
+   void Update(Container_t&& newDataVector, const std::vector<size_t>& newShape);  //move update
+   void Update(const std::vector<T>& newDataVector, const std::vector<size_t>& newShape);  //copy update
    RDataNode<T>& operator=(const RDataNode<T>& other);   //copy assignment
-   void SetName(const std::string& newName) {fName = newName;}
 
-   const T* GetData() const;
-   T* GetMutable();
-   const std::vector<int_t>& GetShape() const {return fShape;}
-   int_t GetShape(int_t dim) const{
-      //if (dim >= fShape.size() || dim < 0) throw std::runtime_error("TMVA::SOFIE - dimension requested does not exist");
-      return fShape[dim];
-   }
-   const int_t GetLength() const {return fLength;}
-   const ETensorType& GetType() const{return fType;}
-   const std::string& GetName() const{return fName;};
 
-   void Unidirectional_broadcast(const std::vector<int_t>& target_shape){
+   const Value_t* GetData() const;
+   Value_t* GetData();
+
+
+
+
+
+
+   void Unidirectional_broadcast(const std::vector<size_t>& target_shape){
       this->Update(UTILITY::Unidirectional_broadcast(this->GetData(), this->GetShape(), target_shape, this->GetName()), target_shape);
    }
 

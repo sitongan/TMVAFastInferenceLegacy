@@ -5,6 +5,8 @@
 #include "RDataNode.hxx"
 #include "ROperator.hxx"
 
+#include "TMVA/RTensor.hxx"
+
 #include "onnx.pb.h"
 
 namespace TMVA{
@@ -43,7 +45,7 @@ public:
          initializer_names.insert(fONNXGraph->initializer(i).name());
          switch(static_cast<ETensorType>(fONNXGraph->initializer(i).data_type())){
             case ETensorType::FLOAT : {
-               fDataNodeMap[fONNXGraph->initializer(i).name()] = new RDataNode<float>(fONNXGraph->mutable_initializer(i));
+               fDataNodeMap[fONNXGraph->initializer(i).name()] = new RDataNode<RTensor<float>>(fONNXGraph->mutable_initializer(i));
                break;
             }
             default: throw std::runtime_error("Data type in weight tensor " + fONNXGraph->initializer(i).name() + " not supported!\n");
@@ -58,7 +60,7 @@ public:
 
             switch(static_cast<ETensorType>(fONNXGraph->input(i).type().tensor_type().elem_type())){
                case ETensorType::FLOAT : {
-                  fDataNodeMap[input_name] = new RDataNode<float>(fONNXGraph->input(i), fDimensionDenotation);
+                  fDataNodeMap[input_name] = new RDataNode<RTensor<float>>(fONNXGraph->input(i), fDimensionDenotation);
                   break;
                }
                default: throw std::runtime_error("Data type in input tensor " + input_name + " not supported!\n");

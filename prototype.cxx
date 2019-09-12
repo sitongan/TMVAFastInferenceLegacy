@@ -7,6 +7,8 @@
 #include "RModel.hxx"
 #include "SOFIE_utilities.hxx"
 
+#include "TMVA/RTensor.hxx"
+
 using std::vector;
 using std::string;
 using std::size_t;
@@ -54,31 +56,32 @@ int test_3(){
 
 int test(){
 
+   using namespace TMVA::Experimental;
 
    RModel model("LinearNN.onnx");
    RGraph* graph_test = model.GetMutableGraph();
 
 
-   RDataNode<float>* testtmp;
+   RDataNode<RTensor<float>>* testtmp;
 
-   RDataNode<float>* testinput= static_cast<RDataNode<float>*>(graph_test->GetRDataNode("input.1"));
+   RDataNode<RTensor<float>>* testinput = static_cast<RDataNode<RTensor<float>>*>(graph_test->GetRDataNode("input.1"));
    vector<float> test_input(6400, 1.0);
    testinput->Update(std::move(test_input), {64, 100});
    cout << "shape: " << to_string(testinput->GetShape()[0]) << "," << to_string(testinput->GetShape()[1]) << endl;
    cout << "length: " << to_string(testinput->GetLength()) << endl;
    graph_test->Forward();
 
-   testtmp = static_cast<RDataNode<float>*>(graph_test->GetRDataNode("0.weight"));
+   testtmp = static_cast<RDataNode<RTensor<float>>*>(graph_test->GetRDataNode("0.weight"));
    cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
    cout << "length: " << to_string(testtmp->GetLength()) << endl;
 
-   testtmp = static_cast<RDataNode<float>*>(graph_test->GetRDataNode("0.bias"));
+   testtmp = static_cast<RDataNode<RTensor<float>>*>(graph_test->GetRDataNode("0.bias"));
    cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
    cout << "length: " << to_string(testtmp->GetLength()) << endl;
 
 
 
-   testtmp = static_cast<RDataNode<float>*>(graph_test->GetRDataNode("7"));
+   testtmp = static_cast<RDataNode<RTensor<float>>*>(graph_test->GetRDataNode("7"));
    cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
    cout << "length: " << to_string(testtmp->GetLength()) << endl;
 

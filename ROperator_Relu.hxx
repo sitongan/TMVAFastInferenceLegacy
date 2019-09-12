@@ -41,7 +41,7 @@ private:
 
 public:
 
-   const std::vector<std::vector<int_t>> shapeInference() final;
+   const std::vector<std::vector<size_t>> shapeInference() final;
    ROperator_Relu<T>(const onnx::NodeProto& nodeproto, RGraph& this_graph);
    ROperator_Relu<T>(const std::string& name_X, const std::string& name_Y, RGraph& this_graph);
    void Forward_reference() final;

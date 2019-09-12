@@ -22,7 +22,7 @@ ROperator* make_ROperator_Transpose(const onnx::NodeProto& nodeproto, RGraph& th
 namespace OPERATION{
 //matrix transpose
 template <typename T>
-void Transpose_reference(const T* input, const std::vector<int_t>& shape_input, T* transposed, const std::vector<int_t>& shape_transposed, const std::vector<int_t>& perm)
+void Transpose_reference(const T* input, const std::vector<size_t>& shape_input, T* transposed, const std::vector<size_t>& shape_transposed, const std::vector<int_t>& perm)
 {
    int_t length = 1;
    for (auto dim: shape_input) length *= dim;
@@ -53,7 +53,7 @@ private:
 
 public:
 
-   const std::vector<std::vector<int_t>> shapeInference() final;
+   const std::vector<std::vector<size_t>> shapeInference() final;
    ROperator_Transpose<T>(const onnx::NodeProto& nodeproto, RGraph& this_graph);
    ROperator_Transpose<T>(const std::string& name_data, const std::string& name_transposed, const std::vector<int_t>& attribute_perm, RGraph& this_graph);
    void Forward_reference() final;

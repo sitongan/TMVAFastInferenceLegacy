@@ -8,6 +8,7 @@
 #include "RDataNode.hxx"
 #include "RGraph.hxx"
 #include "ROperator.hxx"
+#include "TMVA/RTensor.hxx"
 
 namespace TMVA{
 namespace Experimental{
@@ -19,7 +20,7 @@ ROperator* make_ROperator_Gemm(const onnx::NodeProto& nodeproto, RGraph& this_gr
    ETensorType operator_type = this_graph.GetRDataNode(nodeproto.input(0))->GetType();
    switch(operator_type){
       case ETensorType::FLOAT:
-         return new ROperator_Gemm<float>(nodeproto, this_graph);
+         return new ROperator_Gemm<RTensor<float>>(nodeproto, this_graph);
       default:
          throw std::runtime_error("TMVA::SOFIE - Unsupported - Operator Gemm does not yet support input type " + std::to_string(static_cast<int_t>(operator_type)));
    }
@@ -27,12 +28,12 @@ ROperator* make_ROperator_Gemm(const onnx::NodeProto& nodeproto, RGraph& this_gr
 }//INTERNAL
 
 template <typename T>
-const std::vector<std::vector<int_t>> ROperator_Gemm<T>::shapeInference() {
+const std::vector<std::vector<size_t>> ROperator_Gemm<T>::shapeInference() {
    //calculate output tensor shape
-   std::vector<int_t> y_shape;
+   std::vector<size_t> y_shape;
    y_shape.push_back(A->GetShape()[0]);
    y_shape.push_back(B->GetShape()[1]);
-   std::vector<std::vector<int_t>> ret;
+   std::vector<std::vector<size_t>> ret;
    ret.push_back(std::move(y_shape));
    return ret;
 }
@@ -61,7 +62,7 @@ C(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(nodeproto.input(2))))
    }
 
    if (attr_transA == 1){
-      std::vector<T> transposed;
+      std::vector<typename T::Value_t> transposed;
       transposed.resize(A->GetLength());
       auto old_shape = A->GetShape();
       OPERATION::Transpose_reference(A->GetData(), old_shape, transposed.data(), {old_shape[1], old_shape[0]}, {1,0});
@@ -69,7 +70,7 @@ C(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(nodeproto.input(2))))
       attr_transA = 0;
    }
    if (attr_transB == 1){
-      std::vector<T> transposed;
+      std::vector<typename T::Value_t> transposed;
       transposed.resize(B->GetLength());
       auto old_shape = B->GetShape();
       OPERATION::Transpose_reference(B->GetData(), old_shape, transposed.data(), {old_shape[1], old_shape[0]}, {1,0});
@@ -111,7 +112,7 @@ attr_transB(attribute_transB)
    }
 
    if (attr_transA == 1){
-      std::vector<T> transposed;
+      std::vector<typename T::Value_t> transposed;
       transposed.resize(A->GetLength());
       auto old_shape = A->GetShape();
       OPERATION::Transpose_reference(A->GetData(), old_shape, transposed.data(), {old_shape[1], old_shape[0]}, {1,0});
@@ -119,7 +120,7 @@ attr_transB(attribute_transB)
       attr_transA = 0;
    }
    if (attr_transB == 1){
-      std::vector<T> transposed;
+      std::vector<typename T::Value_t> transposed;
       transposed.resize(B->GetLength());
       auto old_shape = B->GetShape();
       OPERATION::Transpose_reference(B->GetData(), old_shape, transposed.data(), {old_shape[1], old_shape[0]}, {1,0});
@@ -138,7 +139,7 @@ attr_transB(attribute_transB)
 template <typename T>
 void ROperator_Gemm<T>::Forward_reference(){
 
-   OPERATION::Gemm_reference(A->GetData(), B->GetData(), C->GetData(), Y->GetMutable(), A->GetShape(0), B->GetShape(1), A->GetShape(1),  attr_alpha, attr_beta);
+   OPERATION::Gemm_reference<typename T::Value_t>(A->GetData(), B->GetData(), C->GetData(), Y->GetData(), A->GetShape(0), B->GetShape(1), A->GetShape(1),  attr_alpha, attr_beta);
 }
 
 
@@ -159,13 +160,13 @@ void ROperator_Gemm<T>::Forward_blas(){
 
    (*Y) = (*C); //copy assignment
 
-   BLAS::sgemm_(&transB, &transA, &n, &m, &k, &attr_alpha, B->GetData(), &ldb, A->GetData(),  &lda, &attr_beta, Y->GetMutable(), &n);
+   BLAS::sgemm_(&transB, &transA, &n, &m, &k, &attr_alpha, B->GetData(), &ldb, A->GetData(),  &lda, &attr_beta, Y->GetData(), &n);
 
 }
 
 
 
-template class ROperator_Gemm<float>;
+template class ROperator_Gemm<RTensor<float>>;
 
 }//SOFIE
 }//Experimental

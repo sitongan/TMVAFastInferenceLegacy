@@ -4,6 +4,8 @@
 #include "RGraph.hxx"
 #include "ROperator.hxx"
 
+#include "TMVA/RTensor.hxx"
+
 namespace TMVA{
 namespace Experimental{
 namespace SOFIE{
@@ -13,7 +15,7 @@ ROperator* make_ROperator_Relu(const onnx::NodeProto& nodeproto, RGraph& this_gr
    ETensorType operator_type = this_graph.GetRDataNode(nodeproto.input(0))->GetType();
    switch(operator_type){
       case ETensorType::FLOAT:
-         return new ROperator_Relu<float>(nodeproto, this_graph);
+         return new ROperator_Relu<RTensor<float>>(nodeproto, this_graph);
       default:
          throw std::runtime_error("TMVA::SOFIE - Unsupported - Operator Relu does not yet support input type " + std::to_string(static_cast<int_t>(operator_type)));
    }
@@ -21,10 +23,10 @@ ROperator* make_ROperator_Relu(const onnx::NodeProto& nodeproto, RGraph& this_gr
 }//INTERNAL
 
 template <typename T>
-const std::vector<std::vector<int_t>> ROperator_Relu<T>::shapeInference() {
+const std::vector<std::vector<size_t>> ROperator_Relu<T>::shapeInference() {
    //calculate output tensor shape
-   std::vector<int_t> y_shape(X->GetShape());
-   std::vector<std::vector<int_t>> ret;
+   std::vector<size_t> y_shape(X->GetShape());
+   std::vector<std::vector<size_t>> ret;
    ret.push_back(std::move(y_shape));
    return ret;
 }
@@ -47,7 +49,7 @@ Y(static_cast<RDataNode<T>*>(this_graph.GetRDataNode(name_Y)))
 
 template <typename T>
 void ROperator_Relu<T>::Forward_reference(){
-   OPERATION::Relu_reference(X->GetData(), Y->GetMutable(), Y->GetLength());
+   OPERATION::Relu_reference(X->GetData(), Y->GetData(), Y->GetLength());
 }
 
 template <typename T>
@@ -56,7 +58,7 @@ void ROperator_Relu<T>::Forward_blas(){
 }
 
 
-template class ROperator_Relu<float>;
+template class ROperator_Relu<RTensor<float>>;
 
 }//SOFIE
 }//Experimental

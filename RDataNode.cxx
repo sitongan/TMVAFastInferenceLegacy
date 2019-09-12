@@ -1,14 +1,16 @@
 
 #include "RDataNode.hxx"
+#include "TMVA/RTensor.hxx"
+
 #include <cstring>
 #include <cstdlib>
+#include <memory>
 
 namespace TMVA{
 namespace Experimental{
 namespace SOFIE{
 
 //constructor for immutable tensorproto (weights)
-//construct a wrapper around the underlying data
 template <typename T>
 RDataNode<T>::RDataNode(onnx::TensorProto* tensorproto)
 {
@@ -26,11 +28,13 @@ RDataNode<T>::RDataNode(onnx::TensorProto* tensorproto)
       throw std::runtime_error("Tensors with externally stored weights have not been supported yet.");
    }
 
+   fDataTensor = new T(fShape);
 
    if (tensorproto->has_raw_data()){
 
-      auto raw_data_ptr = const_cast<T*>(reinterpret_cast<const T*>(tensorproto->mutable_raw_data()->c_str()));   //tensorproto retains ownership
-      fDataVector = new std::vector<T>(raw_data_ptr, raw_data_ptr + fLength); //copy here
+      auto raw_data_ptr = reinterpret_cast<Value_t*>(const_cast<char*>(tensorproto->mutable_raw_data()->c_str()));   //tensorproto retains ownership
+      std::memcpy(fDataTensor->GetData(), raw_data_ptr, fLength * sizeof(Value_t));
+      //fDataVector = new std::vector<T>(raw_data_ptr, raw_data_ptr + fLength); //copy here
    }else{
 
       extract_protobuf_datafield(tensorproto);
@@ -74,39 +78,44 @@ RDataNode<T>::RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::u
    }
    if (valueinfoproto.type().tensor_type().shape().dim_size() == 0) fShape = {1};   //in case this TensorShapeProto has no dimension message: ONNX IR defines this to be a scalar
 
-   fDataVector = new std::vector<T>();
-   fDataVector->resize(fLength);
+   //fDataVector = new std::vector<T>();
+   //fDataVector->resize(fLength);
+   fDataTensor = new T(fShape);
 }
 
 //construct from a std vector, copy data
 template <typename T>
-RDataNode<T>::RDataNode(const std::vector<T>& input, const std::vector<int_t>& shape, const std::string& name) :fName(name){
+RDataNode<T>::RDataNode(const std::vector<T>& input, const std::vector<size_t>& shape, const std::string& name) :RDataNodeBase(name){
    set_fType();
    fShape = shape;
    fLength = input.size();
-   fDataVector = new std::vector<T>(input);
+   //fDataVector = new std::vector<T>(input);
+   fDataTensor = new T(fShape);
+   std::memcpy(fDataTensor->GetData(), input.data(), fLength * sizeof(Value_t));
 }
 
 //construct from a r-value std vector, move data
 template <typename T>
-RDataNode<T>::RDataNode(std::vector<T>&& input, const std::vector<int_t>& shape, const std::string& name) :fName(name){
+RDataNode<T>::RDataNode(Container_t&& input, const std::vector<size_t>& shape, const std::string& name) :RDataNodeBase(name){
    set_fType();
    fShape = shape;
    fLength = input.size();
-   fDataVector = new std::vector<T>(input);
+   //fDataVector = new std::vector<T>(input);
+   fDataTensor = new T(std::make_shared<Container_t>(input), fShape);
 }
 
 //constructor by shape and type
 template <typename T>
-RDataNode<T>::RDataNode(const std::vector<int_t>& shape, const std::string& name) :fName(name){
+RDataNode<T>::RDataNode(const std::vector<std::size_t>& shape, const std::string& name) :RDataNodeBase(name){
    set_fType();
    fShape = shape;
    fLength = 1;
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
    }
-   fDataVector = new std::vector<T>();
-   fDataVector->resize(fLength);
+   //fDataVector = new std::vector<T>();
+   //fDataVector->resize(fLength);
+   fDataTensor = new T(fShape);
 }
 
 
@@ -114,47 +123,59 @@ RDataNode<T>::RDataNode(const std::vector<int_t>& shape, const std::string& name
 
 template <typename T>
 RDataNode<T>::~RDataNode(){
-   delete fDataVector;
+   //delete fDataVector;
+   delete fDataTensor;
 }
 
 template <typename T>
-const T* RDataNode<T>::GetData() const{
-   return fDataVector->data();
+const typename T::Value_t* RDataNode<T>::GetData() const{
+   //return fDataVector->data();
+   return fDataTensor->GetData();
 }
 
 template <typename T>
-T* RDataNode<T>::GetMutable(){
-   return fDataVector->data();
+typename T::Value_t* RDataNode<T>::GetData(){
+   return fDataTensor->GetData();
 }
 
 
 template <typename T>
-void RDataNode<T>::Update(std::vector<T>&& newDataVector, const std::vector<int_t>& newShape){
+void RDataNode<T>::Update(Container_t&& newDataVector, const std::vector<size_t>& newShape){
    fLength = 1;
    fShape = newShape;   //copy assignment
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
    }
    if (fLength != newDataVector.size()) throw std::runtime_error("TMVA::SOFIE - RDataNode Update Error, size inconsistency");
-   *fDataVector = newDataVector;  //this will be move assignment
+
+   //*fDataVector = newDataVector;  //this will be move assignment
+   delete fDataTensor;
+   fDataTensor = new T(std::make_shared<Container_t>(newDataVector), fShape);
 }
 
 template <typename T>
-void RDataNode<T>::Update(const std::vector<T>& newDataVector,const std::vector<int_t>& newShape){
+void RDataNode<T>::Update(const std::vector<T>& newDataVector,const std::vector<size_t>& newShape){
    fLength = 1;
    fShape = newShape;
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
    }
    if (fLength != newDataVector.size()) throw std::runtime_error("TMVA::SOFIE - RDataNode Update Error, size inconsistency");
-   *fDataVector = newDataVector;  //this will be copy assignment
+
+   //*fDataVector = newDataVector;  //this will be copy assignment
+   delete fDataTensor;
+   fDataTensor = new T (fShape);
+   std::memcpy(fDataTensor->GetData(), newDataVector.data(), fLength * sizeof(Value_t));
 }
 
 template <typename T>
 RDataNode<T>& RDataNode<T>::operator=(const RDataNode<T>& other){
-   delete fDataVector;
-   fDataVector = new std::vector<T>(other.GetData(), other.GetData() + other.GetLength());   //copy
+   //delete fDataVector;
+   delete fDataTensor;
    fShape = other.GetShape(); //copy
+   fDataTensor = new T(fShape);
+   std::memcpy(fDataTensor->GetData(), other.GetData(), other.GetLength() * sizeof(Value_t));
+   //fDataVector = new std::vector<T>(other.GetData(), other.GetData() + other.GetLength());   //copy
    fLength = 1;
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
@@ -163,12 +184,13 @@ RDataNode<T>& RDataNode<T>::operator=(const RDataNode<T>& other){
 }
 
 
-template class RDataNode<float>;   //explicit template initialization
+//template class RDataNode<float>;   //explicit template initialization
+template class RDataNode<RTensor<float>>;   //explicit template initialization
 
 
 
 
-
+namespace{
 template<typename T>
 static inline void copy_vector_data(int_t no_of_copies, int_t input_size, T* input, T* target){  //only visible within this translation unit
    std::memcpy(target, input, input_size * sizeof(T));
@@ -183,14 +205,15 @@ static inline void copy_vector_data(int_t no_of_copies, int_t input_size, T* inp
       std::memcpy(target + already_copied * input_size, target, (no_of_copies - already_copied) * input_size * sizeof(T));
    }
 }
+}
 
 
 
 template<typename T>
-std::vector<T> UTILITY::Unidirectional_broadcast(const T* original_data, const std::vector<int_t>& original_shape, const std::vector<int_t>& target_shape, std::string original_name)
+std::vector<T> UTILITY::Unidirectional_broadcast(const T* original_data, const std::vector<size_t>& original_shape, const std::vector<size_t>& target_shape, std::string original_name)
 {
 
-      std::vector<int_t> current_shape(original_shape);
+      std::vector<size_t> current_shape(original_shape);
       int original_length = 1;
       int target_length = 1;
       for (int i = 0; i < original_shape.size(); i++){
@@ -235,7 +258,7 @@ std::vector<T> UTILITY::Unidirectional_broadcast(const T* original_data, const s
 
 }
 
-std::vector<int_t> UTILITY::Position_to_indices(int_t position, const std::vector<int_t>& shape)
+std::vector<int_t> UTILITY::Position_to_indices(int_t position, const std::vector<size_t>& shape)
 {
    std::vector<int_t> ret(shape.size(), 0);
    auto to_divide = position;
@@ -247,7 +270,7 @@ std::vector<int_t> UTILITY::Position_to_indices(int_t position, const std::vecto
    return ret;
 }
 
-int_t UTILITY::Indices_to_position(const std::vector<int_t>& indices, const std::vector<int_t>& shape){
+int_t UTILITY::Indices_to_position(const std::vector<int_t>& indices, const std::vector<size_t>& shape){
    int_t ret = 0;
    int_t rolling_length = 1;
    for (int i = indices.size() - 1; i >= 0; i--){

@@ -63,11 +63,11 @@ private:
 
 public:
 
-   const std::vector<std::vector<int_t>> shapeInference() final;
+   const std::vector<std::vector<size_t>> shapeInference() final;
    ROperator_Gemm(const onnx::NodeProto& nodeproto, RGraph& this_graph);
    ROperator_Gemm(const std::string& name_A , const std::string& name_B, const std::string& name_C,
-   const std::string& name_Y, float attribute_alpha, float attribute_beta, int attribute_transA, int attribute_transB,
-   RGraph& this_graph);
+      const std::string& name_Y, float attribute_alpha, float attribute_beta, int attribute_transA, int attribute_transB,
+      RGraph& this_graph);
    void Forward_reference() final;
    void Forward_blas() final;
 

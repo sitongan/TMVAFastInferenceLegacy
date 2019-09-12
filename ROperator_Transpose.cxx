@@ -4,6 +4,8 @@
 #include "RGraph.hxx"
 #include "ROperator.hxx"
 
+#include "TMVA/RTensor.hxx"
+
 namespace TMVA{
 namespace Experimental{
 namespace SOFIE{
@@ -13,7 +15,7 @@ ROperator* make_ROperator_Transpose(const onnx::NodeProto& nodeproto, RGraph& th
    ETensorType operator_type = this_graph.GetRDataNode(nodeproto.input(0))->GetType();
    switch(operator_type){
       case ETensorType::FLOAT:
-         return new ROperator_Transpose<float>(nodeproto, this_graph);
+         return new ROperator_Transpose<RTensor<float>>(nodeproto, this_graph);
       default:
          throw std::runtime_error("TMVA::SOFIE Error - Unsupported - Operator Transpose does not yet support input type " + std::to_string(static_cast<int_t>(operator_type)));
    }
@@ -21,14 +23,14 @@ ROperator* make_ROperator_Transpose(const onnx::NodeProto& nodeproto, RGraph& th
 }//INTERNAL
 
 template <typename T>
-const std::vector<std::vector<int_t>> ROperator_Transpose<T>::shapeInference() {
+const std::vector<std::vector<size_t>> ROperator_Transpose<T>::shapeInference() {
    //calculate output tensor shape
-   std::vector<int_t> transposed_shape;
+   std::vector<size_t> transposed_shape;
    auto data_shape = data->GetShape();
    for (auto perm_value : attr_perm){
       transposed_shape.push_back(data_shape[perm_value]);
    }
-   std::vector<std::vector<int_t>> ret;
+   std::vector<std::vector<size_t>> ret;
    ret.push_back(std::move(transposed_shape));
    return ret;
 }
@@ -77,7 +79,7 @@ attr_perm(attribute_perm)
 
 template <typename T>
 void ROperator_Transpose<T>::Forward_reference(){
-   OPERATION::Transpose_reference(data->GetData(), data->GetShape(), transposed->GetMutable(), transposed->GetShape(), attr_perm);
+   OPERATION::Transpose_reference(data->GetData(), data->GetShape(), transposed->GetData(), transposed->GetShape(), attr_perm);
 }
 
 template <typename T>
@@ -85,7 +87,7 @@ void ROperator_Transpose<T>::Forward_blas(){
    this->Forward_reference(); //tmp
 }
 
-template class ROperator_Transpose<float>;
+template class ROperator_Transpose<RTensor<float>>;
 
 
 
