@@ -1,5 +1,5 @@
 CXX = g++
-CPPFLAGS = --std=c++11 -MMD -MP
+CPPFLAGS = --std=c++11 -MMD -MP -g
 PROTOBUF = `pkg-config --cflags --libs protobuf`
 ROOTCONFIG = `root-config --cflags --glibs`
 BLASDIR = /Users/sitongan/rootdev/BLAS-3.8.0
@@ -10,7 +10,7 @@ SOFIEHEADER = RGraph.hxx ROperator.hxx ROperator_Gemm.hxx ROperator_Transpose.hx
 SOFIE = $(SOFIEOBEJCT) $(SOFIEHEADER)
 
 prototype: ${SRC:%.cxx=%.o}
-	${CXX} -o prototype $^ $(BLASFLAG) $(ROOTCONFIG) $(PROTOBUF) ${CPPFLAGS}
+	${CXX} -o prototype $^ $(BLASFLAG) $(ROOTCONFIG) $(PROTOBUF) ${CPPFLAGS} -lTMVA
 
 -include $(SRC:%.cxx=%.d)
 

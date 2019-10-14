@@ -5,6 +5,7 @@
 #include "ROperator.hxx"
 
 #include "TMVA/RTensor.hxx"
+#include "TMVA/DNN/Architectures/Cpu/CpuBuffer.h"
 
 namespace TMVA{
 namespace Experimental{
@@ -15,7 +16,7 @@ ROperator* make_ROperator_Transpose(const onnx::NodeProto& nodeproto, RGraph& th
    ETensorType operator_type = this_graph.GetRDataNode(nodeproto.input(0))->GetType();
    switch(operator_type){
       case ETensorType::FLOAT:
-         return new ROperator_Transpose<RTensor<float>>(nodeproto, this_graph);
+         return new ROperator_Transpose<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>(nodeproto, this_graph);
       default:
          throw std::runtime_error("TMVA::SOFIE Error - Unsupported - Operator Transpose does not yet support input type " + std::to_string(static_cast<int_t>(operator_type)));
    }
@@ -87,7 +88,7 @@ void ROperator_Transpose<T>::Forward_blas(){
    this->Forward_reference(); //tmp
 }
 
-template class ROperator_Transpose<RTensor<float>>;
+template class ROperator_Transpose<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>;
 
 
 

@@ -8,13 +8,12 @@ N, D_in, H, D_out = 64, 100, 50, 10
 
 # Create random Tensors to hold inputs and outputs
 x = torch.randn(N, D_in)
-y = torch.randn(N, D_out)
+y = torch.randn(N, H)
 
 # Use the nn package to define our model and loss function.
 model = torch.nn.Sequential(
     torch.nn.Linear(D_in, H),
-    torch.nn.ReLU(),
-    torch.nn.Linear(H, D_out),
+    torch.nn.ReLU()
 )
 loss_fn = torch.nn.MSELoss(reduction='sum')
 
@@ -47,4 +46,4 @@ for t in range(500):
     # parameters
     optimizer.step()
 
-torch.onnx.export(model, x, "LinearNN.onnx", verbose=True)
+torch.onnx.export(model, x, "Gemm.onnx", verbose=True)

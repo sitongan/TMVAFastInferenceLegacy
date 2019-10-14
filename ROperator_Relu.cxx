@@ -5,6 +5,7 @@
 #include "ROperator.hxx"
 
 #include "TMVA/RTensor.hxx"
+#include "TMVA/DNN/Architectures/Cpu/CpuBuffer.h"
 
 namespace TMVA{
 namespace Experimental{
@@ -15,7 +16,7 @@ ROperator* make_ROperator_Relu(const onnx::NodeProto& nodeproto, RGraph& this_gr
    ETensorType operator_type = this_graph.GetRDataNode(nodeproto.input(0))->GetType();
    switch(operator_type){
       case ETensorType::FLOAT:
-         return new ROperator_Relu<RTensor<float>>(nodeproto, this_graph);
+         return new ROperator_Relu<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>(nodeproto, this_graph);
       default:
          throw std::runtime_error("TMVA::SOFIE - Unsupported - Operator Relu does not yet support input type " + std::to_string(static_cast<int_t>(operator_type)));
    }
@@ -58,7 +59,7 @@ void ROperator_Relu<T>::Forward_blas(){
 }
 
 
-template class ROperator_Relu<RTensor<float>>;
+template class ROperator_Relu<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>;
 
 }//SOFIE
 }//Experimental

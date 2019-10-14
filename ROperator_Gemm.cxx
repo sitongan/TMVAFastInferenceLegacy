@@ -9,6 +9,7 @@
 #include "RGraph.hxx"
 #include "ROperator.hxx"
 #include "TMVA/RTensor.hxx"
+#include "TMVA/DNN/Architectures/Cpu/CpuBuffer.h"
 
 namespace TMVA{
 namespace Experimental{
@@ -20,7 +21,7 @@ ROperator* make_ROperator_Gemm(const onnx::NodeProto& nodeproto, RGraph& this_gr
    ETensorType operator_type = this_graph.GetRDataNode(nodeproto.input(0))->GetType();
    switch(operator_type){
       case ETensorType::FLOAT:
-         return new ROperator_Gemm<RTensor<float>>(nodeproto, this_graph);
+         return new ROperator_Gemm<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>(nodeproto, this_graph);
       default:
          throw std::runtime_error("TMVA::SOFIE - Unsupported - Operator Gemm does not yet support input type " + std::to_string(static_cast<int_t>(operator_type)));
    }
@@ -166,7 +167,7 @@ void ROperator_Gemm<T>::Forward_blas(){
 
 
 
-template class ROperator_Gemm<RTensor<float>>;
+template class ROperator_Gemm<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>;
 
 }//SOFIE
 }//Experimental

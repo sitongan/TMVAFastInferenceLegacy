@@ -30,6 +30,7 @@ namespace OPERATION{
 template <typename T>
 void Gemm_reference(const T* A, const T* B, const T* C, T* Y, int_t m, int_t n, int_t k, float alpha = 1.0, float beta = 1.0)
 {
+
    T entry_sum;
    for(int mm=0; mm < m; mm++){
       for (int nn=0; nn < n; nn++){

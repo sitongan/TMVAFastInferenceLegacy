@@ -1,6 +1,7 @@
 
 #include "RDataNode.hxx"
 #include "TMVA/RTensor.hxx"
+#include "TMVA/DNN/Architectures/Cpu/CpuBuffer.h"
 
 #include <cstring>
 #include <cstdlib>
@@ -96,10 +97,10 @@ RDataNode<T>::RDataNode(const std::vector<T>& input, const std::vector<size_t>& 
 
 //construct from a r-value std vector, move data
 template <typename T>
-RDataNode<T>::RDataNode(Container_t&& input, const std::vector<size_t>& shape, const std::string& name) :RDataNodeBase(name){
+RDataNode<T>::RDataNode(Container_t&& input, int_t size, const std::vector<size_t>& shape, const std::string& name) :RDataNodeBase(name){
    set_fType();
    fShape = shape;
-   fLength = input.size();
+   fLength = size;
    //fDataVector = new std::vector<T>(input);
    fDataTensor = new T(std::make_shared<Container_t>(input), fShape);
 }
@@ -140,13 +141,13 @@ typename T::Value_t* RDataNode<T>::GetData(){
 
 
 template <typename T>
-void RDataNode<T>::Update(Container_t&& newDataVector, const std::vector<size_t>& newShape){
+void RDataNode<T>::Update(Container_t&& newDataVector, int_t newSize, const std::vector<size_t>& newShape){
    fLength = 1;
    fShape = newShape;   //copy assignment
    for (auto const& dim_size : fShape){
       fLength *= dim_size;
    }
-   if (fLength != newDataVector.size()) throw std::runtime_error("TMVA::SOFIE - RDataNode Update Error, size inconsistency");
+   if (fLength != newSize) throw std::runtime_error("TMVA::SOFIE - RDataNode Update Error, size inconsistency");
 
    //*fDataVector = newDataVector;  //this will be move assignment
    delete fDataTensor;
@@ -154,7 +155,7 @@ void RDataNode<T>::Update(Container_t&& newDataVector, const std::vector<size_t>
 }
 
 template <typename T>
-void RDataNode<T>::Update(const std::vector<T>& newDataVector,const std::vector<size_t>& newShape){
+void RDataNode<T>::Update(const std::vector<Value_t>& newDataVector,const std::vector<size_t>& newShape){
    fLength = 1;
    fShape = newShape;
    for (auto const& dim_size : fShape){
@@ -185,7 +186,7 @@ RDataNode<T>& RDataNode<T>::operator=(const RDataNode<T>& other){
 
 
 //template class RDataNode<float>;   //explicit template initialization
-template class RDataNode<RTensor<float>>;   //explicit template initialization
+template class RDataNode<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>;   //explicit template initialization
 
 
 

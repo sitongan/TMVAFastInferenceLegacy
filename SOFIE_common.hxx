@@ -21,6 +21,8 @@ namespace Experimental{
 namespace SOFIE{
 
    typedef std::int64_t int_t;   //int64 default int used in onnx.pb.h
+   typedef std::int64_t int64_t;
+   typedef float float32_t;
 
    enum class ETensorType{
       UNDEFINED = 0, FLOAT = 1, UNINT8 = 2, INT8 = 3, UINT16 = 4, INT16 = 5, INT32 = 6, INT64 = 7, STRING = 8, BOOL = 9, //order sensitive

@@ -98,10 +98,10 @@ public:
    RDataNode(const std::vector<std::size_t>& shape, const std::string& name);
    RDataNode(const onnx::ValueInfoProto& valueinfoproto, const std::unordered_map<std::string, int_t>& dimensionDenotationMap);
    RDataNode(const std::vector<T>& input, const std::vector<size_t>& shape, const std::string& name);
-   RDataNode(Container_t&& input, const std::vector<size_t>& shape, const std::string& name);
+   RDataNode(Container_t&& input, int_t size, const std::vector<size_t>& shape, const std::string& name);
 
-   void Update(Container_t&& newDataVector, const std::vector<size_t>& newShape);  //move update
-   void Update(const std::vector<T>& newDataVector, const std::vector<size_t>& newShape);  //copy update
+   void Update(Container_t&& newDataVector, int_t newSize, const std::vector<size_t>& newShape);  //move update
+   void Update(const std::vector<Value_t>& newDataVector, const std::vector<size_t>& newShape);  //copy update
    RDataNode<T>& operator=(const RDataNode<T>& other);   //copy assignment
 
 
@@ -114,7 +114,7 @@ public:
 
 
    void Unidirectional_broadcast(const std::vector<size_t>& target_shape){
-      this->Update(UTILITY::Unidirectional_broadcast(this->GetData(), this->GetShape(), target_shape, this->GetName()), target_shape);
+      this->Update(UTILITY::Unidirectional_broadcast<Value_t>(this->GetData(), this->GetShape(), target_shape, this->GetName()), target_shape);
    }
 
 };

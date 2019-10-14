@@ -8,6 +8,7 @@
 #include "SOFIE_utilities.hxx"
 
 #include "TMVA/RTensor.hxx"
+#include "TMVA/DNN/Architectures/Cpu/CpuBuffer.h"
 
 using std::vector;
 using std::string;
@@ -58,30 +59,32 @@ int test(){
 
    using namespace TMVA::Experimental;
 
+   TMVA::Experimental::RTensor<float, TMVA::DNN::TCpuBuffer<float>> test_RT({2,3,5});
+
    RModel model("LinearNN.onnx");
    RGraph* graph_test = model.GetMutableGraph();
 
 
-   RDataNode<RTensor<float>>* testtmp;
+   RDataNode<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>* testtmp;
 
-   RDataNode<RTensor<float>>* testinput = static_cast<RDataNode<RTensor<float>>*>(graph_test->GetRDataNode("input.1"));
+   RDataNode<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>* testinput = static_cast<RDataNode<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>*>(graph_test->GetRDataNode("input.1"));
    vector<float> test_input(6400, 1.0);
    testinput->Update(std::move(test_input), {64, 100});
    cout << "shape: " << to_string(testinput->GetShape()[0]) << "," << to_string(testinput->GetShape()[1]) << endl;
    cout << "length: " << to_string(testinput->GetLength()) << endl;
    graph_test->Forward();
 
-   testtmp = static_cast<RDataNode<RTensor<float>>*>(graph_test->GetRDataNode("0.weight"));
+   testtmp = static_cast<RDataNode<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>*>(graph_test->GetRDataNode("0.weight"));
    cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
    cout << "length: " << to_string(testtmp->GetLength()) << endl;
 
-   testtmp = static_cast<RDataNode<RTensor<float>>*>(graph_test->GetRDataNode("0.bias"));
+   testtmp = static_cast<RDataNode<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>*>(graph_test->GetRDataNode("0.bias"));
    cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
    cout << "length: " << to_string(testtmp->GetLength()) << endl;
 
 
 
-   testtmp = static_cast<RDataNode<RTensor<float>>*>(graph_test->GetRDataNode("7"));
+   testtmp = static_cast<RDataNode<RTensor<float,TMVA::DNN::TCpuBuffer<float>>>*>(graph_test->GetRDataNode("7"));
    cout << "shape: " << to_string(testtmp->GetShape()[0]) << "," << to_string(testtmp->GetShape()[1]) << endl;
    cout << "length: " << to_string(testtmp->GetLength()) << endl;
 
